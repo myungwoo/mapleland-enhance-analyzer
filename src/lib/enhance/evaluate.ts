@@ -1,5 +1,5 @@
 import type { CostSolution } from './dp-cost';
-import { mix, normalize } from './distribution';
+import { foldOutcomes, normalize } from './distribution';
 import { tickCost } from './grid';
 import { prepareProblem } from './salvage';
 import { decodeAction, gridIndex, type Problem } from './types';
@@ -74,11 +74,26 @@ function evaluateOnGrid(
   const scrollTicks = scrolls.map((s) => tickCost(s.price, tick));
   let creditCapped = false;
 
-  /** 매물을 산 직후의 값. 시작 공격력이 랜덤이면(리버스) 분포로 섞는다. */
-  const afterBuying = (plane: number, option: Problem['baseOptions'][number]) =>
-    mix(option.synthetic ? null : problem.startBonus, (delta) =>
-      reached[plane + gridIndex(axes, maxSlots, option.offset + delta)],
-    );
+  /**
+   * 매물을 산 직후에 들어서는 칸들. 최내곽 루프라 인덱스를 미리 접어 둔다
+   * (매번 정규화하면 셀 수만큼 배열을 새로 만든다).
+   */
+  const entryCache = new Map<number, Array<{ probability: number; key: number }>>();
+  const entriesFor = (option: Problem['baseOptions'][number]) => {
+    let cached = entryCache.get(option.offset);
+    if (!cached) {
+      cached = foldOutcomes(option.synthetic ? null : problem.startBonus, (delta) =>
+        gridIndex(axes, maxSlots, option.offset + delta),
+      );
+      entryCache.set(option.offset, cached);
+    }
+    return cached;
+  };
+  const afterBuying = (plane: number, option: Problem['baseOptions'][number]) => {
+    let sum = 0;
+    for (const e of entriesFor(option)) sum += e.probability * reached[plane + e.key];
+    return sum;
+  };
 
   for (let b = 0; b <= ticks; b++) {
     const base = b * planeSize;
