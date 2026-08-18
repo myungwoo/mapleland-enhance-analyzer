@@ -31,7 +31,8 @@ export interface ReverseInputs {
   subStat: Outcome[];
 }
 
-export const BASE_OFFSETS = [-2, -1, 0, 1, 2] as const;
+/** 인게임 매물은 공5하 ~ 공5상까지 나온다. */
+export const BASE_OFFSETS = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5] as const;
 
 export function baseLabel(offset: number): string {
   if (offset === 0) return '정옵';
@@ -43,13 +44,10 @@ export const DEFAULT_INPUTS: Inputs = {
   maxSlots: 7,
   target: 10,
   scrollPrices: { '100': 30, '60': 120, '10': 400 },
-  bases: [
-    { offset: -2, price: null },
-    { offset: -1, price: 300 },
-    { offset: 0, price: 800 },
-    { offset: 1, price: 1500 },
-    { offset: 2, price: null },
-  ],
+  bases: BASE_OFFSETS.map((offset) => ({
+    offset,
+    price: offset === -1 ? 300 : offset === 0 ? 800 : offset === 1 ? 1500 : null,
+  })),
   // 목표(공10)는 일부러 비워 뒀다. 완성품 매물이 있으면 답은 "그냥 사라"로 자명해지고,
   // 이 분석이 값을 하는 건 매물이 없어 직접 만들어야 할 때다.
   resale: { 0: 50, 2: 280, 4: 350, 5: 380, 6: 400, 7: 600, 8: 900 },

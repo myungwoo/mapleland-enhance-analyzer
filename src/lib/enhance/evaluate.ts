@@ -161,21 +161,21 @@ function quantile(cdf: Float64Array, tick: number, q: number): number {
 }
 
 export interface AttackDistribution {
-  /** 무기 한 자루의 생애 안에 목표를 달성했을 때의 공격력 분포 */
+  /** 아이템 1개의 생애 안에 목표를 달성했을 때의 공격력 분포 */
   outcomes: Array<{ attack: number; probability: number }>;
-  /** 그 자루를 손절하고 다시 시작하게 될 확률 */
+  /** 그 아이템을 손절하고 다시 시작하게 될 확률 */
   abandonProbability: number;
   /** 손절 시점의 (남은 업횟, 공격력) 분포 */
   abandonStates: Array<{ slotsLeft: number; attack: number; probability: number }>;
-  /** 목표 달성까지 평균적으로 소모하는 무기 자루 수 */
-  expectedWeapons: number;
-  /** 무기 한 자루당 평균 소모 주문서 장수 */
-  expectedScrollsPerWeapon: number;
+  /** 목표 달성까지 평균적으로 강화하게 되는 아이템 개수 */
+  expectedItems: number;
+  /** 아이템 1개당 평균 소모 주문서 장수 */
+  expectedScrollsPerItem: number;
 }
 
 /**
- * 최적 정책을 따랐을 때, 무기 한 자루가 겪는 일의 분포.
- * "몇 자루 태워야 하나"와 "어디서 손절하게 되나"를 여기서 얻는다.
+ * 최적 정책을 따랐을 때, 아이템 1개가 겪는 일의 분포.
+ * "몇 개 태워야 하나"와 "어디서 손절하게 되나"를 여기서 얻는다.
  */
 export function attackDistribution(
   input: Problem,
@@ -230,16 +230,16 @@ export function attackDistribution(
       .sort((x, y) => x.attack - y.attack),
     abandonProbability: abandon,
     abandonStates: abandonStates.sort((x, y) => y.probability - x.probability),
-    expectedWeapons: success > 0 ? 1 / success : Number.POSITIVE_INFINITY,
-    expectedScrollsPerWeapon: scrollsUsed,
+    expectedItems: success > 0 ? 1 / success : Number.POSITIVE_INFINITY,
+    expectedScrollsPerItem: scrollsUsed,
   };
 }
 
 /**
- * 상태별 "이 무기 한 자루로 목표를 만들 확률" — 최적 정책을 따랐을 때.
+ * 상태별 "이 아이템 1개로 목표를 만들 확률" — 최적 정책을 따랐을 때.
  *
- * 손절은 이 자루를 포기한다는 뜻이라 0 으로 본다(완성품을 사는 것도 이 자루로 만든 건
- * 아니다). 그래서 이 값은 "언젠가 목표를 갖게 될 확률"이 아니다 — 그건 계속 새 무기를
+ * 손절은 그 아이템을 포기한다는 뜻이라 0 으로 본다(완성품을 사는 것도 그걸로 만든 건
+ * 아니다). 그래서 이 값은 "언젠가 목표를 갖게 될 확률"이 아니다 — 그건 계속 새 아이템을
  * 사면 되니 항상 100% 이고, 그 대가가 헤드라인의 기대비용이다.
  *
  * 업횟이 반드시 1 줄어드므로 u 오름차순 한 번의 스윕으로 끝난다. 고정점이 없다.
@@ -259,7 +259,7 @@ export function successProbabilities(input: Problem, solution: CostSolution): Fl
       }
       const action = decodeAction(policy[i]);
       if (action.kind !== 'scroll' || u === 0) {
-        chance[i] = 0; // 손절·완성품 구매·막다른 길 — 이 자루로는 못 만든다
+        chance[i] = 0; // 손절·완성품 구매·막다른 길 — 이 아이템으로는 못 만든다
         continue;
       }
       const scroll = problem.scrolls[action.scrollIndex];

@@ -51,10 +51,20 @@
   --font-pixel-mono: 'GalmuriMono11', 'Galmuri11', ui-monospace, monospace;
 }
 
+/*
+ * 바닥색은 html 이 깔아야 한다.
+ *
+ * html 에 배경이 없으면 body 배경이 캔버스로 전파되는데, 이때 배경의 위치 기준은
+ * body 가 아니라 **html 박스**(여기서는 h-full 이라 뷰포트 높이)다. repeat 이 기본값이라
+ * 스크롤을 내리면 그라디언트가 한 화면마다 다시 그려져 아래쪽 색이 달라 보였다.
+ */
+html {
+  background-color: var(--surface-0);
+}
+
 body {
-  background:
-    radial-gradient(ellipse 120% 80% at 50% 0%, #1b2028 0%, transparent 60%),
-    var(--surface-0);
+  /* 위쪽 빛무리. 이제 body 박스 기준이라 문서 맨 위에만 한 번 그려진다. */
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, #1b2028 0%, transparent 60%) no-repeat;
   color: var(--ink-1);
   font-family: var(--font-pixel);
   -webkit-font-smoothing: none;

@@ -41,7 +41,7 @@ describe('비용 분포', () => {
   });
 });
 
-describe('무기 한 자루의 결과 분포', () => {
+describe('아이템 1개의 결과 분포', () => {
   const problem = baseProblem();
   const solution = solveMinCost(problem);
   const outcome = attackDistribution(problem, solution);
@@ -56,9 +56,9 @@ describe('무기 한 자루의 결과 분포', () => {
     for (const o of outcome.outcomes) expect(o.attack).toBeGreaterThanOrEqual(problem.target);
   });
 
-  it('평균 소모 자루 수가 1 이상이고 성공확률의 역수와 맞는다', () => {
-    expect(outcome.expectedWeapons).toBeGreaterThanOrEqual(1);
-    expect(outcome.expectedWeapons).toBeCloseTo(1 / (1 - outcome.abandonProbability), 6);
+  it('평균 강화 개수가 1 이상이고 성공확률의 역수와 맞는다', () => {
+    expect(outcome.expectedItems).toBeGreaterThanOrEqual(1);
+    expect(outcome.expectedItems).toBeCloseTo(1 / (1 - outcome.abandonProbability), 6);
   });
 });
 

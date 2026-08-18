@@ -86,7 +86,7 @@ export function solveMinCost(input: Problem): CostSolution {
     const empty = sweep(problem, { ...ctx, allowRestart: false }, 0);
     warnings.push(
       `목표 +${problem.target} 은 업횟 ${problem.maxSlots}회로 도달할 수 없습니다. ` +
-        '목표를 낮추거나 업횟이 더 많은 무기를 쓰세요.',
+        '목표를 낮추거나 업횟이 더 많은 아이템을 쓰세요.',
     );
     return finish({
       expectedCost: Number.POSITIVE_INFINITY,

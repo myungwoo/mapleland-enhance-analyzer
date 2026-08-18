@@ -137,14 +137,24 @@ function Results({
             )}
             {outcome && (
               <Stat
-                label="평균 소모 무기"
-                value={`${outcome.expectedWeapons.toFixed(1)}자루`}
-                sub={`자루당 주문서 ${outcome.expectedScrollsPerWeapon.toFixed(1)}장`}
+                label="평균 강화하는 아이템 개수"
+                value={`${outcome.expectedItems.toFixed(1)}개`}
+                sub={`개당 주문서 ${outcome.expectedScrollsPerItem.toFixed(1)}장`}
               />
             )}
           </div>
         </Panel>
       )}
+
+      <StateAdvisor
+        analysis={analysis}
+        state={advisorState}
+        onChange={onSelect}
+        pendingLevels={pendingLevels}
+        maxPendingLevels={reverse.enabled ? reverse.levels : 0}
+        pendingLevelBonus={reverseAttackBonus(reverse, pendingLevels)}
+        onPendingLevelsChange={onPendingLevelsChange}
+      />
 
       {reverse.enabled && <ReverseOutcome reverse={reverse} />}
 
@@ -201,7 +211,7 @@ function Results({
         </Panel>
 
         {outcome && outcome.outcomes.length > 0 && (
-          <Panel title="달성 시점의 공격력" hint="무기 한 자루 기준">
+          <Panel title="달성 시점의 공격력" hint="아이템 1개 기준">
             <BarList
               rows={outcome.outcomes.map((o) => ({
                 label: `공+${o.attack}`,
@@ -211,7 +221,7 @@ function Results({
               color="var(--series-60)"
             />
             <p className="mt-2 text-[11px] text-ink-3">
-              이 자루를 손절하게 될 확률 {formatPercent(outcome.abandonProbability)}
+              이 아이템을 손절하게 될 확률 {formatPercent(outcome.abandonProbability)}
             </p>
           </Panel>
         )}
@@ -287,15 +297,6 @@ function Results({
         </Panel>
       </div>
 
-      <StateAdvisor
-        analysis={analysis}
-        state={advisorState}
-        onChange={onSelect}
-        pendingLevels={pendingLevels}
-        maxPendingLevels={reverse.enabled ? reverse.levels : 0}
-        pendingLevelBonus={reverseAttackBonus(reverse, pendingLevels)}
-        onPendingLevelsChange={onPendingLevelsChange}
-      />
     </>
   );
 }

@@ -95,12 +95,13 @@ export function InputPanel({
       </Panel>
 
       <Panel title="베이스 매물 시세" hint="빈칸은 안 삼">
-        <div className="flex flex-col gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5">
           {BASE_OFFSETS.map((offset) => {
             const row = inputs.bases.find((b) => b.offset === offset);
             return (
               <NumberField
                 key={offset}
+                compact
                 label={baseLabel(offset)}
                 value={row?.price ?? null}
                 onChange={(v) =>
@@ -210,7 +211,7 @@ export function InputPanel({
               checked={inputs.allowRestart}
               onChange={(e) => patch({ allowRestart: e.target.checked })}
             />
-            손절하고 새 무기로 다시 시작 허용
+            손절하고 새 아이템으로 다시 시작 허용
           </label>
         </div>
       </Panel>

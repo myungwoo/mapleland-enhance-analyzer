@@ -51,7 +51,7 @@ export interface Analysis {
   /** 합성 매물("완성품 직접 구매")까지 포함된 문제. 인덱스 해석은 이걸 기준으로. */
   problem: Problem;
   cost: CostSolution;
-  /** S[u][a] — 그 상태에서 이 무기 한 자루로 목표를 만들 확률 (cost 와 같은 인덱싱) */
+  /** S[u][a] — 그 상태에서 이 아이템 1개로 목표를 만들 확률 (cost 와 같은 인덱싱) */
   successChance: Float64Array;
   distribution: CostDistribution | null;
   outcome: AttackDistribution | null;
@@ -148,8 +148,8 @@ export interface Advice {
   /** 아직 남은 레벨업이 있어 먼저 굴려야 하는 상태인지 (리버스 무기) */
   levelUpFirst: boolean;
   /**
-   * 이 무기 한 자루로 목표를 만들 확률. 손절하면 실패로 친다.
-   * "언젠가 목표를 갖게 될 확률"이 아니다 — 그건 새 무기를 계속 사면 되니 항상 100% 이고,
+   * 이 아이템 1개로 목표를 만들 확률. 손절하면 실패로 친다.
+   * "언젠가 목표를 갖게 될 확률"이 아니다 — 그건 새 아이템을 계속 사면 되니 항상 100% 이고,
    * 그 대가가 기대비용이다.
    */
   successProbability: number;

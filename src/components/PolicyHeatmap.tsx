@@ -88,7 +88,7 @@ export function PolicyHeatmap({
 
   return (
     <Panel
-      title="최적 정책"
+      title="최적 전략"
       hint="세로: 남은 업횟 · 가로: 지금 공격력"
       right={<Legend problem={analysis.problem} />}
     >
@@ -163,7 +163,7 @@ export function PolicyHeatmap({
                 <b className="text-ink-1">{hover.label}</b>
               </span>
               <span className="tabular text-ink-3">
-                이 무기로 달성 {formatPercent(hover.success)}
+                이 아이템으로 달성 {formatPercent(hover.success)}
               </span>
               <span className="tabular text-ink-3">
                 남은 기대비용 {formatMeso(hover.remaining)}
