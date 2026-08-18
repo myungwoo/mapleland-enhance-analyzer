@@ -1,5 +1,5 @@
 import { breakevenPrices, type BreakevenResult } from './breakeven';
-import { solveMaxSuccess, type BudgetSolution } from './dp-budget';
+import { solveMaxSuccess, startBands, type BudgetSolution, type StartBand, type StartPlan } from './dp-budget';
 import { solveMinCost, type CostSolution } from './dp-cost';
 import {
   attackDistribution,
@@ -14,7 +14,14 @@ import { decodeAction, gridIndex, type Action, type Outcome, type Problem } from
 
 export * from './types';
 export { solveMinCost, type CostSolution } from './dp-cost';
-export { solveMaxSuccess, type BudgetSolution, type BudgetOptions } from './dp-budget';
+export {
+  solveMaxSuccess,
+  startBands,
+  type BudgetSolution,
+  type BudgetOptions,
+  type StartBand,
+  type StartPlan,
+} from './dp-budget';
 export {
   attackDistribution,
   costDistribution,
@@ -62,6 +69,16 @@ export interface Analysis {
   budgetIsAuto: boolean;
   /** 사용자가 넣은 예산에서의 달성 확률. 예산을 안 넣었으면 null. */
   budgetProbability: number | null;
+  /**
+   * 사용자가 넣은 예산으로 시작할 때 사야 할 매물과 첫 수. 예산을 안 넣었으면 null.
+   *
+   * `cost.bestBaseIndex` (최소비용 기준) 와 다를 수 있다. 그 차이가 곧 "예산이 정해지면
+   * 전략이 달라진다"는 말의 알맹이다 — 돈이 빠듯하면 비싼 매물은 사고 나서 주문서 살
+   * 돈이 없어지고, 넉넉하면 싼 매물로 여러 번 도전하는 쪽이 유리해진다.
+   */
+  budgetStart: StartPlan | null;
+  /** 예산 구간별로 사야 할 매물. 예산 곡선이 있을 때만 채워진다. */
+  budgetStartBands: StartBand[];
   breakeven: BreakevenResult[] | null;
   /** 매물별 "얼마까지 주고 살 만한가" */
   bases: BaseValue[];
@@ -85,6 +102,8 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
       bases: [],
       budgetIsAuto: false,
       budgetProbability: null,
+      budgetStart: null,
+      budgetStartBands: [],
       distribution: null,
       outcome: null,
       budget: null,
@@ -111,10 +130,16 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
 
   let budget: BudgetSolution | null = null;
   let budgetProbability: number | null = null;
+  let budgetStart: StartPlan | null = null;
+  let budgetStartBands: StartBand[] = [];
   if (Number.isFinite(budgetAmount) && budgetAmount > 0) {
     budget = solveMaxSuccess(problem, { budget: budgetAmount, ticks: options.budgetTicks });
+    budgetStartBands = startBands(budget);
     if (!budgetIsAuto) {
       budgetProbability = budget.curve[Math.min(budget.ticks, Math.floor(userBudget / budget.tick))];
+      // 곡선은 사용자의 예산보다 넓은 구간까지 풀려 있다. 첫 매물은 반드시 **사용자의
+      // 예산 지점**에서 읽어야 한다 — 끝점에서 읽으면 있지도 않은 돈 기준의 답이 나온다.
+      budgetStart = budget.startAt(userBudget);
       if (budgetProbability === 0) {
         warnings.push('이 예산으로는 목표를 달성할 수 없습니다.');
       }
@@ -136,6 +161,8 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
     budget,
     budgetIsAuto,
     budgetProbability,
+    budgetStart,
+    budgetStartBands,
     breakeven:
       options.includeBreakeven && problem.allowRestart
         ? breakevenPrices(alignSalvage(problem, cost))

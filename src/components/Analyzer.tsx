@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { analyze, decodeAction, normalize, startSuccess, type Analysis } from '@/lib/enhance';
 import { formatMeso, formatPercent, MAN } from '@/lib/format';
+import { BudgetStartNote, BudgetStartPlan } from './BudgetStartPlan';
 import { BarList, ProbabilityCurve } from './charts';
 import { InputPanel } from './InputPanel';
 import { DEFAULT_INPUTS, reverseAttackBonus, toProblem, type Inputs } from './inputs';
@@ -163,6 +164,7 @@ function Results({
               <b className="text-gold">{startRolls[0]?.moveSentence ?? firstMove}</b>.
             </p>
           )}
+          {budgetMeso !== null && <BudgetStartNote analysis={analysis} budgetMeso={budgetMeso} />}
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {noRestart ? (
               <>
@@ -311,6 +313,8 @@ function Results({
             </b>
           </p>
         )}
+
+        <BudgetStartPlan analysis={analysis} budgetMeso={budgetMeso} />
 
         <div className="mt-2 border-t border-line pt-2 text-[11px] leading-relaxed text-ink-3">
           <p>
