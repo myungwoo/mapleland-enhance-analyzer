@@ -234,3 +234,39 @@ export function attackDistribution(
     expectedScrollsPerWeapon: scrollsUsed,
   };
 }
+
+/**
+ * 상태별 "이 무기 한 자루로 목표를 만들 확률" — 최적 정책을 따랐을 때.
+ *
+ * 손절은 이 자루를 포기한다는 뜻이라 0 으로 본다(완성품을 사는 것도 이 자루로 만든 건
+ * 아니다). 그래서 이 값은 "언젠가 목표를 갖게 될 확률"이 아니다 — 그건 계속 새 무기를
+ * 사면 되니 항상 100% 이고, 그 대가가 헤드라인의 기대비용이다.
+ *
+ * 업횟이 반드시 1 줄어드므로 u 오름차순 한 번의 스윕으로 끝난다. 고정점이 없다.
+ */
+export function successProbabilities(input: Problem, solution: CostSolution): Float64Array {
+  const problem = prepareProblem(input);
+  const { axes, policy } = solution;
+  const { maxSlots, attackMin, attackMax, span } = axes;
+  const chance = new Float64Array((maxSlots + 1) * span);
+
+  for (let u = 0; u <= maxSlots; u++) {
+    for (let a = attackMin; a <= attackMax; a++) {
+      const i = u * span + (a - attackMin);
+      if (a >= problem.target) {
+        chance[i] = 1;
+        continue;
+      }
+      const action = decodeAction(policy[i]);
+      if (action.kind !== 'scroll' || u === 0) {
+        chance[i] = 0; // 손절·완성품 구매·막다른 길 — 이 자루로는 못 만든다
+        continue;
+      }
+      const scroll = problem.scrolls[action.scrollIndex];
+      const hit = chance[gridIndex(axes, u - 1, a + scroll.attackGain)];
+      const miss = chance[(u - 1) * span + (a - attackMin)];
+      chance[i] = scroll.successRate * hit + (1 - scroll.successRate) * miss;
+    }
+  }
+  return chance;
+}

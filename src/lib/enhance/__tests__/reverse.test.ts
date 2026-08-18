@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { convolve, expectedValue, normalize, probabilityAtLeast } from '../distribution';
 import { solveMinCost } from '../dp-cost';
-import { attackDistribution } from '../evaluate';
+import { attackDistribution, successProbabilities } from '../evaluate';
 import { baseFairValue } from '../salvage';
+import { gridIndex } from '../types';
 import { REVERSE_PER_LEVEL as PER_LEVEL, reverseProblem } from './fixtures';
 
 describe('레벨업 분포', () => {
@@ -112,5 +113,41 @@ describe('시작 공격력이 랜덤인 경우', () => {
       0,
     );
     expect(baseFairValue(problem, solution.salvageAt, base)).toBeCloseTo(byHand, 6);
+  });
+});
+
+describe('이 무기로 목표를 만들 확률', () => {
+  const problem = reverseProblem();
+  const solution = solveMinCost(problem);
+  const chance = successProbabilities(problem, solution);
+  const { axes } = solution;
+  const at = (slots: number, attack: number) => chance[gridIndex(axes, slots, attack)];
+
+  it('목표를 이미 넘긴 상태는 1이다', () => {
+    for (let u = 0; u <= problem.maxSlots; u++) expect(at(u, problem.target)).toBe(1);
+  });
+
+  it('업횟이 없고 목표 미달이면 0이다', () => {
+    for (let a = axes.attackMin; a < problem.target; a++) expect(at(0, a)).toBe(0);
+  });
+
+  it('공격력이 높을수록 확률이 높다', () => {
+    for (let u = 1; u <= problem.maxSlots; u++) {
+      for (let a = axes.attackMin; a < problem.target - 1; a++) {
+        expect(at(u, a + 1)).toBeGreaterThanOrEqual(at(u, a) - 1e-12);
+      }
+    }
+  });
+
+  it('출발 지점의 확률이 결과 분포의 성공 질량과 정확히 같다', () => {
+    // 두 계산이 서로를 검증한다. attackDistribution 은 질량을 앞으로 흘리고,
+    // successProbabilities 는 뒤에서부터 접는다.
+    const outcome = attackDistribution(problem, solution);
+    const base = problem.baseOptions[solution.bestBaseIndex];
+    const fromChance = convolve(PER_LEVEL, 3).reduce(
+      (sum, o) => sum + o.probability * at(problem.maxSlots, base.offset + o.value),
+      0,
+    );
+    expect(fromChance).toBeCloseTo(1 - outcome.abandonProbability, 9);
   });
 });

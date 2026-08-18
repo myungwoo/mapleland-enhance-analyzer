@@ -1,7 +1,7 @@
 'use client';
 
 import { advise, type Analysis, type Outcome } from '@/lib/enhance';
-import { formatMeso } from '@/lib/format';
+import { formatMeso, formatPercent } from '@/lib/format';
 import { NumberField, Panel } from './ui';
 
 export function StateAdvisor({
@@ -22,10 +22,10 @@ export function StateAdvisor({
   pendingLevelBonus: Outcome[] | null;
   onPendingLevelsChange: (levels: number) => void;
 }) {
-  const { problem, cost } = analysis;
+  const { problem, cost, successChance } = analysis;
   const slots = clamp(state.slots, 0, problem.maxSlots);
   const attack = clamp(state.attack, cost.axes.attackMin, problem.target);
-  const advice = advise(problem, cost, slots, attack, pendingLevelBonus);
+  const advice = advise(problem, cost, successChance, slots, attack, pendingLevelBonus);
 
   const next =
     advice.action.kind === 'scroll'
@@ -83,6 +83,10 @@ export function StateAdvisor({
             </p>
           )}
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+            <dt className="text-ink-2">이 무기로 목표 달성할 확률</dt>
+            <dd className="tabular text-right text-gold">
+              {formatPercent(advice.successProbability)}
+            </dd>
             <dt className="text-ink-3">여기서 목표까지</dt>
             <dd className="tabular text-right text-ink-1">{formatMeso(advice.remainingCost)}</dd>
             <dt className="text-ink-3">지금 팔면 (이론가)</dt>
@@ -90,6 +94,18 @@ export function StateAdvisor({
             <dt className="text-ink-3">손절 후 새로 시작하면</dt>
             <dd className="tabular text-right text-ink-1">{formatMeso(advice.restartCost)}</dd>
           </dl>
+          {advice.action.kind === 'scroll' && advice.successProbability < 1e-9 ? (
+            <p className="mt-2 text-[11px] leading-relaxed text-[color:var(--warn)]">
+              이 무기로는 목표에 못 닿습니다. 그런데도 주문서를 바르라는 건, 공격력을 올려
+              <b> 되팔 값을 높이는 쪽이 그냥 손절하는 것보다 싸기 때문</b>입니다. 목표를 향한
+              진전이 아니라 손절 준비입니다.
+            </p>
+          ) : (
+            <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
+              손절하면 실패로 칩니다. 새 무기를 계속 사면 언젠가는 만들게 되니, 그쪽 확률은
+              늘 100%이고 그 대가가 위의 기대비용입니다.
+            </p>
+          )}
           {advice.action.kind !== 'done' && (
             <p className="mt-2 border-t border-line pt-2 text-[11px] leading-relaxed text-ink-2">
               {keepIsBetter ? (
