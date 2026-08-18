@@ -65,13 +65,14 @@ export function InputPanel({
         <div className="flex flex-col gap-2">
           {preset.scrolls.map((s) => (
             <div key={s.id} className="flex items-center gap-2">
+              {/* 원본이 30×29 라 그대로 놓아야 도트가 안 뭉개진다 */}
               <Image
                 src={asset(s.icon)}
                 alt=""
-                width={32}
-                height={32}
+                width={30}
+                height={29}
                 unoptimized
-                className="size-8 shrink-0"
+                className="pixelated shrink-0"
               />
               <div className="flex-1">
                 <NumberField
