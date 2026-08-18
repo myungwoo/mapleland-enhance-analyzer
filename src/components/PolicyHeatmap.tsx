@@ -102,7 +102,7 @@ export function PolicyHeatmap({
             {Array.from({ length: problem.maxSlots + 1 }, (_, k) => problem.maxSlots - k).map(
               (slots) => (
                 <tr key={slots}>
-                  <th className="tabular pr-1 text-right font-normal text-ink-3">{slots}칸</th>
+                  <th className="tabular pr-1 text-right font-normal text-ink-3">{slots}회</th>
                   {columns.map((attack) => {
                     const cell = cellOf(slots, attack);
                     const isStart = slots === problem.maxSlots && attack === start.offset;
@@ -128,7 +128,7 @@ export function PolicyHeatmap({
                                 ? 'outline outline-2 outline-offset-[-2px] outline-[color:var(--gold)]'
                                 : ''
                           }`}
-                          aria-label={`남은 ${slots}칸, 공+${attack}: ${cell.label}`}
+                          aria-label={`남은 ${slots}회, 공+${attack}: ${cell.label}`}
                         >
                           {cell.label}
                         </button>
@@ -145,7 +145,7 @@ export function PolicyHeatmap({
           {hover ? (
             <>
               <span className="text-ink-2">
-                남은 <b className="tabular text-ink-1">{hover.slots}칸</b> · 지금{' '}
+                남은 <b className="tabular text-ink-1">{hover.slots}회</b> · 지금{' '}
                 <b className="tabular text-ink-1">공+{hover.attack}</b>
               </span>
               <span className="inline-flex items-center gap-1">
@@ -165,7 +165,7 @@ export function PolicyHeatmap({
             </>
           ) : (
             <span className="text-ink-3">
-              칸에 커서를 올리면 상세가 보이고, 누르면 아래 판정기에 들어갑니다. 금색 테두리가
+              격자 칸에 커서를 올리면 상세가 보이고, 누르면 아래 판정기에 들어갑니다. 금색 테두리가
               출발 지점입니다.
             </span>
           )}
