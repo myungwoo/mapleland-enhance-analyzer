@@ -6,6 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4.x-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Vitest](https://img.shields.io/badge/Vitest-36%20passing-6E9F18?logo=vitest&logoColor=white)](src/lib/enhance/__tests__)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 무기 주문서 강화에서 **목표 공격력까지의 최소 기대비용 전략**과 **예산 제약 하 달성 확률**을
 계산한다. 시뮬레이션이 아니라 동적계획 엄밀해다.
@@ -112,3 +113,19 @@ W(u, a) = max( V(a),  max_s [ E W(u−1, ·) − c_s ] )
 검증 단계는 `.github/workflows/checks.yml` 한 곳에만 있고, PR 과 배포가 이를 재사용한다
 (`workflow_call`). 배포 워크플로는 여기에 Pages 하위 경로를 넘기고 결과물을 아티팩트로
 받아 그대로 올린다 — PR 에서 통과한 것과 같은 빌드가 배포된다.
+
+## 라이선스와 제3자 자산
+
+코드와 에셋은 [MIT](LICENSE) 입니다. 다만 이 라이선스는 **이 저장소에 담긴 것에만** 적용됩니다.
+
+MapleStory / 메이플랜드는 넥슨의 저작물이고 이 프로젝트는 넥슨과 무관합니다. 저장소에는
+넥슨의 이미지·텍스트·데이터가 들어 있지 않습니다.
+
+- **주문서 아이콘은 게임 원본이 아니라 직접 그린 것**입니다 (`scripts/draw-scroll-icons.mjs`).
+  게임 원본은 넥슨 저작물이라 담아서 재배포할 수 없고, 픽셀 단위로 옮겨 그리면 2차적저작물이라
+  마찬가지입니다. 그래서 "대각선으로 말린 두루마리"라는 일반적인 관용구와, 유저가 실제
+  식별에 쓰는 색 코드(100% 파랑 / 60% 빨강 / 10% 금색)만 맞추고 형상은 새로 만들었습니다.
+  파라메트릭 생성기라 비율이 마음에 안 들면 숫자만 고치면 됩니다.
+- **Galmuri** 글꼴은 [SIL Open Font License 1.1](https://github.com/quiple/galmuri) 이며,
+  이 저장소는 글꼴 파일을 포함하지 않고 CDN 에서 불러옵니다.
+- 주문서 성공률·상승폭 같은 수치는 상호운용을 위한 사실 정보로만 씁니다.
