@@ -6,9 +6,13 @@ import { formatMeso, formatPercent } from '@/lib/format';
 /**
  * "가진 돈이 얼마냐에 따라 사야 할 매물이 달라진다" 를 보여 주는 표.
  *
- * 예산 곡선(초록)이 비용 곡선 위로 벌어지는 이유의 절반은 여기에 있다. 예산이 빠듯하면
- * 비싼 매물은 사고 나서 주문서 살 돈이 없어지고, 넉넉하면 싸게 사서 여러 번 도전하는
- * 쪽이 유리해진다. 결론 패널의 매물은 최소비용 기준이라 이 표와 다를 수 있다.
+ * 예산이 빠듯하면 비싼 매물은 사고 나서 주문서 살 돈이 없어지고, 넉넉하면 싸게 사서
+ * 여러 번 도전하는 쪽이 유리해진다. 예산 곡선(초록)이 비용 곡선 위로 벌어지는 이유의
+ * 절반이 여기에 있지만, 자리는 곡선 옆이 아니라 **결론**이다 — "무엇을 사라"는 예보가
+ * 아니라 지금 할 일이라서다.
+ *
+ * 그래서 바로 위에 매물 이름이 이미 한두 번 나온다. 여기서 다시 이름을 부르지 않고
+ * 답이 갈리는 지점만 말한다.
  */
 export function BudgetStartPlan({
   analysis,
@@ -32,8 +36,8 @@ export function BudgetStartPlan({
   if (bands.length === 1) {
     return (
       <div className="mt-3 border-t border-line pt-2 text-[11px] leading-relaxed text-ink-2">
-        예산이 얼마든 첫 매물은 <b className="text-gold">{nameOf(bands[0].baseIndex)}</b>{' '}
-        입니다 — 이 문제에서는 사야 할 물건이 가진 돈에 따라 달라지지 않습니다.
+        <b className="text-ink-1">사야 할 매물은 가진 돈에 따라 달라지지 않습니다</b> — 예산이
+        얼마든 답은 위와 같습니다.
         {floor > 0 && <> 다만 {formatMeso(floor)} 아래로는 무엇을 사도 목표를 만들지 못합니다.</>}
       </div>
     );

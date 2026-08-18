@@ -219,6 +219,7 @@ function Results({
               />
             )}
           </div>
+          <BudgetStartPlan analysis={analysis} budgetMeso={budgetMeso} />
         </Panel>
       )}
 
@@ -313,8 +314,6 @@ function Results({
             </b>
           </p>
         )}
-
-        <BudgetStartPlan analysis={analysis} budgetMeso={budgetMeso} />
 
         <div className="mt-2 border-t border-line pt-2 text-[11px] leading-relaxed text-ink-3">
           <p>
