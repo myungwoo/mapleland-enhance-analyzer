@@ -22,7 +22,19 @@
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
+
+# 에이전트 로컬 상태 (사용자마다 다름)
+.claude/worktrees/
+.claude/settings.local.json
+.claude/local/
+
+# 에디터 로컬 설정 (사용자마다 다름)
+.vscode/
+.idea/
+*.code-workspace
+*.swp
 
 # debug
 npm-debug.log*

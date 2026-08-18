@@ -1,7 +1,18 @@
-# 메이플랜드 주문서 강화 분석기
+# 🍁 메이플랜드 주문서 강화 분석기
+
+[![Website - Live](https://img.shields.io/badge/Website-Live-2ea44f?style=flat&logo=githubpages)](https://myungwoo.github.io/mapleland-enhance-analyzer/)
+[![Deploy](https://github.com/myungwoo/mapleland-enhance-analyzer/actions/workflows/deploy.yml/badge.svg)](.github/workflows/deploy.yml)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4.x-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Vitest](https://img.shields.io/badge/Vitest-36%20passing-6E9F18?logo=vitest&logoColor=white)](src/lib/enhance/__tests__)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 무기 주문서 강화에서 **목표 공격력까지의 최소 기대비용 전략**과 **예산 제약 하 달성 확률**을
 계산한다. 시뮬레이션이 아니라 동적계획 엄밀해다.
+
+**바로 사용하기 → [myungwoo.github.io/mapleland-enhance-analyzer](https://myungwoo.github.io/mapleland-enhance-analyzer/)**
+(설치 없이 브라우저에서 동작하고, 계산은 전부 로컬에서 끝난다)
 
 ```bash
 npm run dev        # 웹 UI
@@ -102,3 +113,21 @@ W(u, a) = max( V(a),  max_s [ E W(u−1, ·) − c_s ] )
 검증 단계는 `.github/workflows/checks.yml` 한 곳에만 있고, PR 과 배포가 이를 재사용한다
 (`workflow_call`). 배포 워크플로는 여기에 Pages 하위 경로를 넘기고 결과물을 아티팩트로
 받아 그대로 올린다 — PR 에서 통과한 것과 같은 빌드가 배포된다.
+
+## 라이선스와 제3자 자산
+
+소스 코드는 [MIT](LICENSE) 입니다. 다만 **게임 아이콘은 여기서 빠집니다.**
+
+`public/game-icons/` 와 `src/app/icon.png` 는 게임 내 주문서 아이콘 원본으로 넥슨의
+저작물이고, MIT 적용 대상이 아닙니다. 직접 그린 아이콘도 만들어 봤지만 게임과 나란히
+놓으면 이질감이 커서, 이용자가 주문서를 헷갈리지 않는 쪽을 택했습니다. 넥슨의 허락을
+받은 것은 아니며, 요청이 있으면 삭제합니다. 포크하시는 분은 이 파일들에 대해 독자적으로
+판단하시기 바랍니다.
+
+받아오는 방법은 `scripts/fetch-game-icons.mjs` 에 남겨 두었습니다 — 어떤 파일이 어디서
+왔는지가 코드로 드러나야 경계가 흐려지지 않습니다.
+
+**Galmuri** 글꼴은 [SIL Open Font License 1.1](https://github.com/quiple/galmuri) 이며,
+이 저장소는 글꼴 파일을 포함하지 않고 CDN 에서 불러옵니다.
+
+MapleStory / 메이플랜드는 넥슨의 저작물이며 이 프로젝트는 넥슨과 무관합니다.

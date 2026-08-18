@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { asset } from '@/lib/asset';
 import { PRESETS, findPreset } from '@/lib/enhance/data/presets';
 import { BASE_OFFSETS, baseLabel, type Inputs } from './inputs';
 import { NumberField, Panel } from './ui';
@@ -64,13 +65,14 @@ export function InputPanel({
         <div className="flex flex-col gap-2">
           {preset.scrolls.map((s) => (
             <div key={s.id} className="flex items-center gap-2">
+              {/* 원본이 30×29 라 그대로 놓아야 도트가 안 뭉개진다 */}
               <Image
-                src={`https://maplestory.io/api/gms/62/item/${s.iconId}/icon`}
+                src={asset(s.icon)}
                 alt=""
-                width={28}
-                height={28}
+                width={30}
+                height={29}
                 unoptimized
-                className="pixelated size-7 shrink-0"
+                className="pixelated shrink-0"
               />
               <div className="flex-1">
                 <NumberField
