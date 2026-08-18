@@ -1,7 +1,7 @@
 'use client';
 
 import { useDeferredValue, useMemo, useState } from 'react';
-import { analyze, decodeAction, startSuccess, type Analysis } from '@/lib/enhance';
+import { analyze, decodeAction, normalize, startSuccess, type Analysis } from '@/lib/enhance';
 import { formatMeso, formatPercent, MAN } from '@/lib/format';
 import { BarList, ProbabilityCurve } from './charts';
 import { InputPanel } from './InputPanel';
@@ -84,7 +84,7 @@ function Results({
   pendingLevels: number;
   onPendingLevelsChange: (levels: number) => void;
 }) {
-  const { problem, cost, distribution, outcome, budget, breakeven, strategies, warnings } =
+  const { problem, cost, distribution, outcome, budget, breakeven, bases, strategies, warnings } =
     analysis;
 
   const start = problem.baseOptions[cost.bestBaseIndex];
@@ -98,6 +98,10 @@ function Results({
         ? '이미 목표를 만족합니다'
         : '바로 되파는 게 낫습니다';
 
+  // 리버스처럼 시작 공격력이 랜덤이면 첫 수가 하나로 정해지지 않는다. 굴림 결과별로
+  // 무엇을 바르는지 보여 주되, 같은 수가 이어지는 구간은 묶어야 읽힌다.
+  const startRolls = firstMovesByRoll(analysis, start);
+
   const advisorState = selected ?? { slots: problem.maxSlots, attack: start.offset };
   const noRestart = !problem.allowRestart;
   const startChance = startSuccess(problem, cost);
@@ -110,11 +114,42 @@ function Results({
 
       {cost.feasible && Number.isFinite(cost.expectedCost) && (
         <Panel title="결론" hint="지금 해야 할 일">
-          <p className="text-[15px] leading-relaxed text-ink-1">
-            <b className="text-gold">{start.label ?? `공${start.offset}`}</b> 매물을{' '}
-            <b className="tabular text-gold">{formatMeso(start.price)}</b> 에 사서{' '}
-            <b className="text-gold">{firstMove}</b>.
-          </p>
+          {startRolls.length > 1 ? (
+            <>
+              <p className="text-[15px] leading-relaxed text-ink-1">
+                <b className="text-gold">{start.label ?? `공${start.offset}`}</b> 매물을{' '}
+                <b className="tabular text-gold">{formatMeso(start.price)}</b> 에 사서{' '}
+                <b className="text-gold">레벨업부터 끝내세요</b>. 첫 수는 레벨업 결과에 따라
+                갈립니다.
+              </p>
+              <table className="mt-2 w-full max-w-md text-[11px]">
+                <thead>
+                  <tr className="text-ink-3">
+                    <th className="pb-1 text-left font-normal">레벨업 후 공격력</th>
+                    <th className="pb-1 text-right font-normal">확률</th>
+                    <th className="pb-1 text-right font-normal">첫 수</th>
+                  </tr>
+                </thead>
+                <tbody className="tabular">
+                  {startRolls.map((row) => (
+                    <tr key={row.label} className="border-t border-line">
+                      <td className="py-0.5 text-ink-2">{row.label}</td>
+                      <td className="py-0.5 text-right text-ink-1">
+                        {formatPercent(row.probability)}
+                      </td>
+                      <td className="py-0.5 text-right text-gold">{row.move}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : (
+            <p className="text-[15px] leading-relaxed text-ink-1">
+              <b className="text-gold">{start.label ?? `공${start.offset}`}</b> 매물을{' '}
+              <b className="tabular text-gold">{formatMeso(start.price)}</b> 에 사서{' '}
+              <b className="text-gold">{startRolls[0]?.moveSentence ?? firstMove}</b>.
+            </p>
+          )}
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {noRestart ? (
               <>
@@ -134,7 +169,7 @@ function Results({
               <Stat
                 label="기대 총비용"
                 value={formatMeso(cost.expectedCost)}
-                sub="되팔이 회수 반영"
+                sub={problem.salvage ? '되팔이 회수 반영' : '되팔기 없음 (회수 0)'}
                 tone="gold"
               />
             )}
@@ -303,41 +338,94 @@ function Results({
           </Panel>
         )}
 
-        <Panel title="매물 이론가" hint="이 값보다 싸면 사도 되는 가격">
+        <Panel title="살 만한 매물" hint="이 값보다 싸면 사는 게 이득">
           <table className="w-full text-[11px]">
             <thead>
               <tr className="text-ink-3">
                 <th className="pb-1 text-left font-normal">매물</th>
                 <th className="pb-1 text-right font-normal">호가</th>
-                <th className="pb-1 text-right font-normal">이론가</th>
+                <th className="pb-1 text-right font-normal">여기까지</th>
+                {problem.salvage && <th className="pb-1 text-right font-normal">되팔이가</th>}
                 <th className="pb-1 text-right font-normal">판정</th>
               </tr>
             </thead>
             <tbody className="tabular">
-              {problem.baseOptions
-                .filter((b) => !b.synthetic)
-                .map((b) => {
-                  const fair = cost.salvageAt(problem.maxSlots, b.offset);
-                  const cheap = b.price < fair;
-                  return (
-                    <tr key={b.offset} className="border-t border-line">
-                      <td className="py-1 text-ink-2">{b.label ?? `공${b.offset}`}</td>
-                      <td className="py-1 text-right text-ink-1">{formatMeso(b.price)}</td>
-                      <td className="py-1 text-right text-ink-1">{formatMeso(fair)}</td>
-                      <td
-                        className="py-1 text-right"
-                        style={{ color: cheap ? 'var(--series-60)' : 'var(--ink-3)' }}
-                      >
-                        {cheap ? '저평가' : '적정'}
-                      </td>
-                    </tr>
-                  );
-                })}
+              {bases.map((b) => {
+                const worth = b.price < b.worthPayingUpTo;
+                return (
+                  <tr key={b.offset} className="border-t border-line">
+                    <td className="py-1 text-ink-2">{b.label ?? `공${b.offset}`}</td>
+                    <td className="py-1 text-right text-ink-1">{formatMeso(b.price)}</td>
+                    <td className="py-1 text-right text-ink-1">
+                      {Number.isFinite(b.worthPayingUpTo) ? formatMeso(b.worthPayingUpTo) : '제한 없음'}
+                    </td>
+                    {problem.salvage && (
+                      <td className="py-1 text-right text-ink-3">{formatMeso(b.resaleValue)}</td>
+                    )}
+                    <td
+                      className="py-1 text-right"
+                      style={{ color: worth ? 'var(--series-60)' : 'var(--ink-3)' }}
+                    >
+                      {worth ? '살 만함' : '비쌈'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+          <p className="mt-2 border-t border-line pt-2 text-[11px] leading-relaxed text-ink-3">
+            &ldquo;여기까지&rdquo;는 이 매물을 뺐을 때의 총비용에서, 이걸로 시작하면 앞으로 들
+            비용을 뺀 값입니다. 그보다 비싸게 주면 차라리 다른 선택지가 낫다는 뜻이라
+            {problem.salvage ? ' 되팔 수 없는 아이템에도 그대로 씁니다.' : ' 되팔기를 꺼도 쓸 수 있습니다.'}
+          </p>
         </Panel>
       </div>
 
     </>
   );
+}
+
+interface FirstMoveRow {
+  label: string;
+  probability: number;
+  /** 표에 쓰는 짧은 표기 */
+  move: string;
+  /** 문장에 넣는 표기 */
+  moveSentence: string;
+}
+
+/** 레벨업 굴림별 첫 수. 같은 수가 이어지는 구간은 하나로 묶는다. */
+function firstMovesByRoll(analysis: Analysis, start: Analysis['problem']['baseOptions'][number]) {
+  const { problem, cost } = analysis;
+  const rolls = start.synthetic ? null : problem.startBonus;
+  if (!rolls?.length) return [] as FirstMoveRow[];
+
+  const moveAt = (attack: number) => {
+    const action = decodeAction(
+      cost.policy[problem.maxSlots * cost.axes.span + (attack - cost.axes.attackMin)],
+    );
+    if (action.kind === 'scroll') {
+      const label = problem.scrolls[action.scrollIndex].label;
+      return { move: label, moveSentence: `${label} 주문서를 바르세요` };
+    }
+    if (action.kind === 'done') return { move: '이미 달성', moveSentence: '이미 목표를 만족합니다' };
+    if (action.kind === 'restart') {
+      return { move: '바로 되팔기', moveSentence: '바로 되파는 게 낫습니다' };
+    }
+    return { move: '방법 없음', moveSentence: '이 조건으로는 방법이 없습니다' };
+  };
+
+  const rows: FirstMoveRow[] = [];
+  for (const roll of normalize(rolls)) {
+    const attack = start.offset + roll.value;
+    const { move, moveSentence } = moveAt(attack);
+    const last = rows[rows.length - 1];
+    if (last && last.move === move) {
+      last.probability += roll.probability;
+      last.label = `${last.label.split('~')[0]}~공+${attack}`;
+    } else {
+      rows.push({ label: `공+${attack}`, probability: roll.probability, move, moveSentence });
+    }
+  }
+  return rows;
 }

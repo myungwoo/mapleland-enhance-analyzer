@@ -6,6 +6,7 @@ import {
   ACTION_RESTART_BASE,
   gridIndex,
   makeAxes,
+  maxStartBonus,
   type Axes,
   type Problem,
 } from './types';
@@ -78,8 +79,12 @@ export function solveMinCost(input: Problem): CostSolution {
   });
 
   const maxGain = Math.max(...problem.scrolls.map((s) => s.attackGain), 0);
+  // 리버스 레벨업으로 얹히는 공격력도 도달 범위에 넣어야 한다. 이걸 빼먹으면
+  // "100% 7회(+7) + 레벨업(+6) = +13" 로 닿는 목표를 불가능이라고 답한다.
   const reachableByScrolling =
-    Math.max(...problem.baseOptions.map((b) => b.offset)) + problem.maxSlots * maxGain >=
+    Math.max(...problem.baseOptions.map((b) => b.offset)) +
+      maxStartBonus(problem) +
+      problem.maxSlots * maxGain >=
     problem.target;
 
   if (!reachableByScrolling && !Number.isFinite(finishedPrice)) {
