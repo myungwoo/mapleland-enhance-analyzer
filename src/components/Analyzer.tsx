@@ -84,7 +84,7 @@ function Results({
   pendingLevels: number;
   onPendingLevelsChange: (levels: number) => void;
 }) {
-  const { problem, cost, distribution, outcome, budget, breakeven, strategies, warnings } =
+  const { problem, cost, distribution, outcome, budget, breakeven, bases, strategies, warnings } =
     analysis;
 
   const start = problem.baseOptions[cost.bestBaseIndex];
@@ -338,38 +338,46 @@ function Results({
           </Panel>
         )}
 
-        <Panel title="매물 이론가" hint="이 값보다 싸면 사도 되는 가격">
+        <Panel title="살 만한 매물" hint="이 값보다 싸면 사는 게 이득">
           <table className="w-full text-[11px]">
             <thead>
               <tr className="text-ink-3">
                 <th className="pb-1 text-left font-normal">매물</th>
                 <th className="pb-1 text-right font-normal">호가</th>
-                <th className="pb-1 text-right font-normal">이론가</th>
+                <th className="pb-1 text-right font-normal">여기까지</th>
+                {problem.salvage && <th className="pb-1 text-right font-normal">되팔이가</th>}
                 <th className="pb-1 text-right font-normal">판정</th>
               </tr>
             </thead>
             <tbody className="tabular">
-              {problem.baseOptions
-                .filter((b) => !b.synthetic)
-                .map((b) => {
-                  const fair = cost.salvageAt(problem.maxSlots, b.offset);
-                  const cheap = b.price < fair;
-                  return (
-                    <tr key={b.offset} className="border-t border-line">
-                      <td className="py-1 text-ink-2">{b.label ?? `공${b.offset}`}</td>
-                      <td className="py-1 text-right text-ink-1">{formatMeso(b.price)}</td>
-                      <td className="py-1 text-right text-ink-1">{formatMeso(fair)}</td>
-                      <td
-                        className="py-1 text-right"
-                        style={{ color: cheap ? 'var(--series-60)' : 'var(--ink-3)' }}
-                      >
-                        {cheap ? '저평가' : '적정'}
-                      </td>
-                    </tr>
-                  );
-                })}
+              {bases.map((b) => {
+                const worth = b.price < b.worthPayingUpTo;
+                return (
+                  <tr key={b.offset} className="border-t border-line">
+                    <td className="py-1 text-ink-2">{b.label ?? `공${b.offset}`}</td>
+                    <td className="py-1 text-right text-ink-1">{formatMeso(b.price)}</td>
+                    <td className="py-1 text-right text-ink-1">
+                      {Number.isFinite(b.worthPayingUpTo) ? formatMeso(b.worthPayingUpTo) : '제한 없음'}
+                    </td>
+                    {problem.salvage && (
+                      <td className="py-1 text-right text-ink-3">{formatMeso(b.resaleValue)}</td>
+                    )}
+                    <td
+                      className="py-1 text-right"
+                      style={{ color: worth ? 'var(--series-60)' : 'var(--ink-3)' }}
+                    >
+                      {worth ? '살 만함' : '비쌈'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+          <p className="mt-2 border-t border-line pt-2 text-[11px] leading-relaxed text-ink-3">
+            &ldquo;여기까지&rdquo;는 이 매물을 뺐을 때의 총비용에서, 이걸로 시작하면 앞으로 들
+            비용을 뺀 값입니다. 그보다 비싸게 주면 차라리 다른 선택지가 낫다는 뜻이라
+            {problem.salvage ? ' 되팔 수 없는 아이템에도 그대로 씁니다.' : ' 되팔기를 꺼도 쓸 수 있습니다.'}
+          </p>
         </Panel>
       </div>
 

@@ -3,6 +3,8 @@ import { solveMaxSuccess } from '../dp-budget';
 import { solveMinCost } from '../dp-cost';
 import { attackDistribution, costDistribution, successProbabilities } from '../evaluate';
 import { breakevenPrices } from '../breakeven';
+import { baseValues } from '../index';
+import { prepareProblem } from '../salvage';
 import { gridIndex } from '../types';
 import { baseProblem } from './fixtures';
 
@@ -246,5 +248,44 @@ describe('손절을 금지했을 때', () => {
     const free = solveMaxSuccess(baseProblem({ target: 10 }), { budget: 500_000_000, ticks: 800 });
     expect(noRestart.successProbability).toBeLessThan(free.successProbability);
     expect(noRestart.successProbability).toBeCloseTo(startChance, 2);
+  });
+});
+
+describe('매물별 살 만한 상한', () => {
+  const problem = baseProblem({ target: 10 });
+  const solution = solveMinCost(problem);
+  const prepared = prepareProblem(problem);
+  const values = baseValues(problem, solution);
+
+  it('최적 매물만 "살 만함"이 된다', () => {
+    const worth = values.filter((b) => b.price < b.worthPayingUpTo);
+    expect(worth).toHaveLength(1);
+    expect(worth[0].offset).toBe(prepared.baseOptions[solution.bestBaseIndex].offset);
+  });
+
+  it('최적이 아닌 매물은 R − C(U, off) 와 정확히 같다', () => {
+    // 그 매물을 빼도 최적해가 안 바뀌므로, 상한은 남은 비용을 뺀 값 그대로다.
+    for (const b of values) {
+      if (b.offset === prepared.baseOptions[solution.bestBaseIndex].offset) continue;
+      const ahead = solution.cost[gridIndex(solution.axes, problem.maxSlots, b.offset)];
+      expect(b.worthPayingUpTo).toBeCloseTo(solution.expectedCost - ahead, 3);
+    }
+  });
+
+  it('되팔기를 꺼도 쓸 수 있는 값이 나온다', () => {
+    // 되팔이 이론가는 0 으로 무너지지만, "얼마까지 주고 살 만한가"는 그대로 살아 있다.
+    const noResale = baseProblem({ target: 10, salvage: null });
+    const solved = solveMinCost(noResale);
+    for (const b of baseValues(noResale, solved)) {
+      expect(b.resaleValue).toBe(0);
+      expect(b.worthPayingUpTo).toBeGreaterThan(0);
+      expect(Number.isFinite(b.worthPayingUpTo)).toBe(true);
+    }
+  });
+
+  it('대안이 없으면 상한이 없다', () => {
+    const only = baseProblem({ target: 10, baseOptions: [{ offset: 0, price: 4_000_000 }] });
+    const solved = solveMinCost(only);
+    expect(baseValues(only, solved)[0].worthPayingUpTo).toBe(Number.POSITIVE_INFINITY);
   });
 });

@@ -9,7 +9,7 @@ import {
   type CostDistribution,
 } from './evaluate';
 import { mix } from './distribution';
-import { prepareProblem } from './salvage';
+import { baseFairValue, prepareProblem } from './salvage';
 import { decodeAction, gridIndex, type Action, type Outcome, type Problem } from './types';
 
 export * from './types';
@@ -59,6 +59,8 @@ export interface Analysis {
   outcome: AttackDistribution | null;
   budget: BudgetSolution | null;
   breakeven: BreakevenResult[] | null;
+  /** 매물별 "얼마까지 주고 살 만한가" */
+  bases: BaseValue[];
   strategies: StrategyComparison[];
   warnings: string[];
 }
@@ -76,6 +78,7 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
       problem,
       cost,
       successChance,
+      bases: [],
       distribution: null,
       outcome: null,
       budget: null,
@@ -115,6 +118,7 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
       options.includeBreakeven && problem.allowRestart
         ? breakevenPrices(alignSalvage(problem, cost))
         : null,
+    bases: baseValues(input, cost),
     strategies: compareStrategies(problem, cost),
     warnings,
   };
@@ -170,6 +174,61 @@ export function startSuccess(problem: Problem, solution: CostSolution): number {
 /** 기준 해와 같은 회수 모델을 쓰도록 문제를 맞춘다. */
 export function alignSalvage(problem: Problem, reference: CostSolution): Problem {
   return reference.salvageMode === 'none' ? { ...problem, salvage: null } : problem;
+}
+
+export interface BaseValue {
+  offset: number;
+  label?: string;
+  price: number;
+  /**
+   * 이 매물에 지불할 수 있는 상한 — 이 값보다 싸면 사는 게 이득이다.
+   *
+   * "이 매물을 빼고 풀었을 때의 총비용"에서 "이 매물로 시작했을 때 앞으로 들 비용"을
+   * 뺀 값이다. 그보다 비싸게 주면 차라리 다른 선택지로 가는 게 낫다는 뜻이라, 되팔기가
+   * 꺼져 있어도(리버스처럼 교환불가) 의미가 살아 있다.
+   *
+   * 다른 대안이 아예 없으면 Infinity 다 — 값이 얼마든 이것밖에 방법이 없다.
+   */
+  worthPayingUpTo: number;
+  /** 되팔이 기준 이론가. 되팔기를 끄면 0 이라 판단 근거가 되지 못한다. */
+  resaleValue: number;
+}
+
+/**
+ * 매물별 "얼마까지 주고 살 만한가".
+ *
+ * 되팔이 이론가(W)와는 다른 질문에 답한다. W 는 "팔면 얼마 받나"라 시장 가치이고,
+ * 이쪽은 "내 목표를 두고 볼 때 얼마까지가 이득인가"라 의사결정 기준이다. 되팔 수 없는
+ * 아이템에서는 W 가 0 으로 무너지지만 이 값은 그대로 쓸모가 있다.
+ */
+export function baseValues(input: Problem, solution: CostSolution): BaseValue[] {
+  const problem = prepareProblem(input);
+  const real = problem.baseOptions.filter((b) => !b.synthetic);
+
+  return real.map((base) => {
+    // 목록에서 아예 빼면 격자의 공격력 축이 좁아져 gridIndex 가 엉뚱한 칸으로 클램프된다
+    // (공1하를 빼면 하한이 0 이 되어 −1 을 0 으로 읽는다). 값만 무한대로 두면 축은
+    // 그대로 두고 선택지에서만 빠진다.
+    const priced = { ...input, baseOptions: real.map((b) => (b === base ? { ...b, price: Number.POSITIVE_INFINITY } : b)) };
+    const withoutIt = real.length > 1 ? solveMinCost(priced) : null;
+
+    let worthPayingUpTo = Number.POSITIVE_INFINITY;
+    if (withoutIt && Number.isFinite(withoutIt.expectedCost)) {
+      // 이 매물이 없다고 쳤을 때의 비용 격자로, 여기서 출발하면 앞으로 얼마가 드는지 잰다.
+      const ahead = mix(problem.startBonus, (delta) =>
+        withoutIt.cost[gridIndex(withoutIt.axes, problem.maxSlots, base.offset + delta)],
+      );
+      worthPayingUpTo = withoutIt.expectedCost - ahead;
+    }
+
+    return {
+      offset: base.offset,
+      label: base.label,
+      price: base.price,
+      worthPayingUpTo,
+      resaleValue: baseFairValue(problem, solution.salvageAt, base),
+    };
+  });
 }
 
 export interface Advice {
