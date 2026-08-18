@@ -133,8 +133,9 @@ export function InputPanel({
       <Panel title="완작 시세" hint="업횟 0회 기준, 아는 것만">
         <p className="mb-2 text-[11px] leading-relaxed text-ink-3">
           업횟이 남은 매물은 거래가 거의 없어, 손절하려면 남은 업횟을 다 태워 완작으로
-          만들어야 팔린다고 봅니다. 남은 업횟의 값어치는 엔진이 이 곡선과 주문서 값에서
-          유도합니다. 회색 숫자는 예측값이니 실제와 다르면 채워 주세요.
+          만들어야 팔린다고 봅니다. 태우는 데 드는 주문서값까지 계산에 넣기 때문에, 남은
+          업횟이 이득이 될지 부담이 될지도 이 곡선에서 갈립니다. 회색 숫자는 예측값이니
+          실제와 다르면 채워 주세요.
         </p>
         {!predictResale && (
           <p className="mb-2 border-l-2 border-[color:var(--warn)] bg-[#2a2417] px-2 py-1.5 text-[11px] leading-relaxed text-ink-2">
