@@ -5,7 +5,7 @@ import { attackDistribution, costDistribution, successProbabilities } from '../e
 import { breakevenPrices } from '../breakeven';
 import { analyze, baseValues } from '../index';
 import { prepareProblem } from '../salvage';
-import { gridIndex } from '../types';
+import { decodeAction, gridIndex } from '../types';
 import { baseProblem } from './fixtures';
 
 describe('비용 분포', () => {
@@ -334,5 +334,38 @@ describe('두 곡선을 나란히 놓을 때', () => {
     expect(result.budgetProbability).toBeGreaterThan(0);
     expect(result.budgetProbability).toBeLessThan(1);
     expect(analyze(baseProblem({ target: 12 })).budgetProbability).toBeNull();
+  });
+});
+
+describe('남은 예산에 따른 최적 수', () => {
+  const problem = baseProblem({ target: 12 });
+  const budget = solveMaxSuccess(problem, { budget: 200_000_000, ticks: 1500 });
+  const cost = solveMinCost(problem);
+
+  it('남은 예산이 많아질수록 달성 확률이 오른다', () => {
+    let prev = -1;
+    for (const remaining of [0, 1e7, 3e7, 6e7, 1e8, 2e8]) {
+      const chance = budget.chanceAt(4, 4, remaining);
+      expect(chance).toBeGreaterThanOrEqual(prev - 1e-9);
+      prev = chance;
+    }
+  });
+
+  it('예산이 빠듯할 때는 최소비용 전략과 다른 수를 둔다', () => {
+    // 이 차이가 예산 곡선이 비용 곡선 위로 벌어지는 이유다. 하나라도 갈리지 않으면
+    // 두 곡선을 나란히 보여 줄 이유도 없다.
+    const differs = [];
+    for (let u = 1; u <= problem.maxSlots; u++) {
+      for (let a = -1; a <= 8; a++) {
+        const byCost = decodeAction(cost.policy[gridIndex(cost.axes, u, a)]);
+        const byBudget = budget.actionAt(u, a, 30_000_000);
+        if (JSON.stringify(byCost) !== JSON.stringify(byBudget)) differs.push([u, a]);
+      }
+    }
+    expect(differs.length).toBeGreaterThan(0);
+  });
+
+  it('돈이 없으면 아무것도 못 한다', () => {
+    expect(budget.chanceAt(5, 0, 0)).toBe(0);
   });
 });

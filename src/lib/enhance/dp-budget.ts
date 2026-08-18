@@ -34,6 +34,8 @@ export interface BudgetSolution {
   warnings: string[];
   /** 임의 상태의 최적 행동 조회 */
   actionAt: (slotsLeft: number, attack: number, remainingBudget: number) => Action;
+  /** 임의 상태에서 남은 예산으로 목표를 달성할 확률 */
+  chanceAt: (slotsLeft: number, attack: number, remainingBudget: number) => number;
 }
 
 /**
@@ -182,6 +184,9 @@ export function solveMaxSuccess(input: Problem, options: BudgetOptions): BudgetS
     warnings.push('이 예산으로는 목표를 달성할 수 없습니다.');
   }
 
+  const budgetIndex = (amount: number) =>
+    Math.max(0, Math.min(ticks, Math.floor(amount / tick)));
+
   return {
     successProbability: curve[ticks],
     curve,
@@ -192,8 +197,10 @@ export function solveMaxSuccess(input: Problem, options: BudgetOptions): BudgetS
     firstAction,
     warnings,
     actionAt: (slotsLeft, attack, remainingBudget) => {
-      const b = Math.max(0, Math.min(ticks, Math.floor(remainingBudget / tick)));
+      const b = budgetIndex(remainingBudget);
       return decodeAction(policy[b * planeSize + gridIndex(axes, slotsLeft, attack)]);
     },
+    chanceAt: (slotsLeft, attack, remainingBudget) =>
+      prob[budgetIndex(remainingBudget) * planeSize + gridIndex(axes, slotsLeft, attack)],
   };
 }

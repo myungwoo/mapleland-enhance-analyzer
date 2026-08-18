@@ -3,9 +3,16 @@
 import { useRef, useState } from 'react';
 import { formatMeso, formatPercent } from '@/lib/format';
 
-const W = 640;
-const H = 200;
-const PAD = { top: 12, right: 12, bottom: 26, left: 40 };
+/*
+ * viewBox 를 실제로 그려지는 폭에 맞춰 둔다.
+ *
+ * SVG 는 w-full 로 늘어나므로 좌표계가 렌더 폭보다 좁으면 그 비율만큼 글자와 선이 함께
+ * 확대된다. 반 폭 패널을 전체 폭으로 합치면서 배율이 2배가 되어 차트만 동떨어져 보였다.
+ * 결과 칸의 통상 폭(약 1000px)에 맞추면 배율이 1 근처라 주변 글자 크기와 맞는다.
+ */
+const W = 1000;
+const H = 260;
+const PAD = { top: 16, right: 16, bottom: 34, left: 56 };
 
 export interface CurveMarker {
   x: number;
@@ -99,7 +106,7 @@ export function ProbabilityCurve({
               stroke="var(--line)"
               strokeWidth={1}
             />
-            <text x={PAD.left - 6} y={sy(p) + 3} textAnchor="end" fontSize={9} fill="var(--ink-3)">
+            <text x={PAD.left - 8} y={sy(p) + 4} textAnchor="end" fontSize={11} fill="var(--ink-3)">
               {p * 100}%
             </text>
           </g>
@@ -107,7 +114,7 @@ export function ProbabilityCurve({
 
         {usable.map((m, i) => {
           const x = sx(m.x);
-          const nearRight = x > W - PAD.right - 70;
+          const nearRight = x > W - PAD.right - 110;
           return (
             <g key={m.label}>
               <line
@@ -121,9 +128,9 @@ export function ProbabilityCurve({
               />
               <text
                 x={nearRight ? x - 4 : x + 4}
-                y={PAD.top + 9 + i * 11}
+                y={PAD.top + 11 + i * 14}
                 textAnchor={nearRight ? 'end' : 'start'}
-                fontSize={9}
+                fontSize={11}
                 fill="var(--ink-2)"
               >
                 {m.label} {formatMeso(m.x)}
@@ -153,7 +160,7 @@ export function ProbabilityCurve({
                   key={s.label}
                   cx={sx(hoverX)}
                   cy={sy(readAt(s, hoverX))}
-                  r={4.5}
+                  r={5}
                   fill={s.color}
                   stroke="var(--surface-1)"
                   strokeWidth={2}
@@ -174,9 +181,9 @@ export function ProbabilityCurve({
           <text
             key={f}
             x={sx(maxSpend * f)}
-            y={H - 8}
+            y={H - 10}
             textAnchor={f === 0 ? 'start' : f === 1 ? 'end' : 'middle'}
-            fontSize={9}
+            fontSize={11}
             fill="var(--ink-3)"
           >
             {f === 0 ? '0' : formatMeso(maxSpend * f)}

@@ -16,6 +16,7 @@ export function Analyzer() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [selected, setSelected] = useState<{ slots: number; attack: number } | null>(null);
   const [pendingLevels, setPendingLevels] = useState(0);
+  const [spent, setSpent] = useState(0);
 
   // 입력칸은 즉시 반응하고, 무거운 분석만 타이핑이 멎은 뒤에 돈다.
   const settled = useDebounced(inputs);
@@ -59,6 +60,8 @@ export function Analyzer() {
               reverse={settled.reverse}
               pendingLevels={Math.min(pendingLevels, settled.reverse.levels)}
               onPendingLevelsChange={setPendingLevels}
+              spent={spent}
+              onSpentChange={setSpent}
             />
           ) : (
             <Panel title="입력이 더 필요합니다">
@@ -81,6 +84,8 @@ function Results({
   reverse,
   pendingLevels,
   onPendingLevelsChange,
+  spent,
+  onSpentChange,
 }: {
   analysis: Analysis;
   selected: { slots: number; attack: number } | null;
@@ -89,6 +94,8 @@ function Results({
   reverse: Inputs['reverse'];
   pendingLevels: number;
   onPendingLevelsChange: (levels: number) => void;
+  spent: number;
+  onSpentChange: (spent: number) => void;
 }) {
   const { problem, cost, distribution, outcome, budget, budgetIsAuto, budgetProbability, breakeven, bases, strategies, warnings } =
     analysis;
@@ -216,6 +223,9 @@ function Results({
       <StateAdvisor
         noRestart={noRestart}
         analysis={analysis}
+        totalBudget={budgetMeso}
+        spent={spent}
+        onSpentChange={onSpentChange}
         state={advisorState}
         onChange={onSelect}
         pendingLevels={pendingLevels}
