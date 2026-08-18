@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { asset } from '@/lib/asset';
 import { PRESETS, findPreset } from '@/lib/enhance/data/presets';
 import { BASE_OFFSETS, baseLabel, type Inputs } from './inputs';
 import { NumberField, Panel } from './ui';
@@ -65,12 +66,12 @@ export function InputPanel({
           {preset.scrolls.map((s) => (
             <div key={s.id} className="flex items-center gap-2">
               <Image
-                src={`https://maplestory.io/api/gms/62/item/${s.iconId}/icon`}
+                src={asset(s.icon)}
                 alt=""
-                width={28}
-                height={28}
+                width={32}
+                height={32}
                 unoptimized
-                className="pixelated size-7 shrink-0"
+                className="size-8 shrink-0"
               />
               <div className="flex-1">
                 <NumberField
