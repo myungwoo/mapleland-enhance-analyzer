@@ -1,4 +1,5 @@
 import type { CostSolution } from './dp-cost';
+import { mix, normalize } from './distribution';
 import { tickCost } from './grid';
 import { prepareProblem } from './salvage';
 import { decodeAction, gridIndex, type Problem } from './types';
@@ -73,6 +74,12 @@ function evaluateOnGrid(
   const scrollTicks = scrolls.map((s) => tickCost(s.price, tick));
   let creditCapped = false;
 
+  /** 매물을 산 직후의 값. 시작 공격력이 랜덤이면(리버스) 분포로 섞는다. */
+  const afterBuying = (plane: number, option: Problem['baseOptions'][number]) =>
+    mix(option.synthetic ? null : problem.startBonus, (delta) =>
+      reached[plane + gridIndex(axes, maxSlots, option.offset + delta)],
+    );
+
   for (let b = 0; b <= ticks; b++) {
     const base = b * planeSize;
     for (let u = 0; u <= maxSlots; u++) {
@@ -108,9 +115,8 @@ function evaluateOnGrid(
           const net = option.price - salvage(u, a);
           if (net < 0) creditCapped = true;
           const t = tickCost(Math.max(0, net), tick, 1);
-          const target = gridIndex(axes, maxSlots, option.offset);
-          if (b >= t.lo) v += (1 - t.pHi) * reached[(b - t.lo) * planeSize + target];
-          if (t.pHi > 0 && b >= t.hi) v += t.pHi * reached[(b - t.hi) * planeSize + target];
+          if (b >= t.lo) v += (1 - t.pHi) * afterBuying((b - t.lo) * planeSize, option);
+          if (t.pHi > 0 && b >= t.hi) v += t.pHi * afterBuying((b - t.hi) * planeSize, option);
         }
         reached[i] = v;
       }
@@ -120,12 +126,11 @@ function evaluateOnGrid(
   // 첫 매물 구매비까지 얹은 CDF
   const buy = problem.baseOptions[solution.bestBaseIndex];
   const t = tickCost(buy.price, tick, 1);
-  const target = gridIndex(axes, maxSlots, buy.offset);
   const cdf = new Float64Array(ticks + 1);
   for (let b = 0; b <= ticks; b++) {
     let v = 0;
-    if (b >= t.lo) v += (1 - t.pHi) * reached[(b - t.lo) * planeSize + target];
-    if (t.pHi > 0 && b >= t.hi) v += t.pHi * reached[(b - t.hi) * planeSize + target];
+    if (b >= t.lo) v += (1 - t.pHi) * afterBuying((b - t.lo) * planeSize, buy);
+    if (t.pHi > 0 && b >= t.hi) v += t.pHi * afterBuying((b - t.hi) * planeSize, buy);
     cdf[b] = v;
   }
 
@@ -181,7 +186,13 @@ export function attackDistribution(
   const { maxSlots, attackMin, attackMax, span } = axes;
   const mass = new Float64Array((maxSlots + 1) * span);
   const start = problem.baseOptions[solution.bestBaseIndex];
-  mass[gridIndex(axes, maxSlots, start.offset)] = 1;
+  // 시작 공격력이 랜덤이면(리버스 레벨업) 그 분포대로 질량을 흩뿌리고 시작한다.
+  const startRoll = start.synthetic ? null : problem.startBonus;
+  for (const { value, probability } of startRoll?.length
+    ? normalize(startRoll)
+    : [{ value: 0, probability: 1 }]) {
+    mass[gridIndex(axes, maxSlots, start.offset + value)] += probability;
+  }
 
   const outcomes = new Map<number, number>();
   const abandonStates: AttackDistribution['abandonStates'] = [];

@@ -1,4 +1,5 @@
-import { makeEnhanceSalvage, prepareProblem } from './salvage';
+import { mix } from './distribution';
+import { baseFairValue, makeEnhanceSalvage, prepareProblem } from './salvage';
 import {
   ACTION_DONE,
   ACTION_INFEASIBLE,
@@ -127,7 +128,7 @@ export function solveMinCost(input: Problem): CostSolution {
     // 되팔이를 아예 꺼서 확실히 수렴시키고, 무엇이 이상한지 짚어 준다.
     for (const base of problem.baseOptions) {
       if (base.synthetic) continue;
-      const fair = salvage(problem.maxSlots, base.offset);
+      const fair = baseFairValue(problem, salvage, base);
       if (fair > base.price) {
         warnings.push(
           `${base.label ?? `공${base.offset}`} 매물이 이론가 ` +
@@ -266,7 +267,12 @@ function sweep(
   return { cost, policy };
 }
 
-/** R = min over 베이스 매물 v 의 (매물가 + C[U][offset_v]) */
+/**
+ * R = min over 베이스 매물 v 의 (매물가 + C[U][offset_v])
+ *
+ * 리버스 무기처럼 시작 공격력이 랜덤이면 그 분포로 섞는다. 합성 매물(완성품 직접 구매)은
+ * 이미 목표를 만족한 물건이라 레벨업 분포를 타지 않는다.
+ */
 function startValue(
   problem: Problem,
   axes: Axes,
@@ -275,7 +281,10 @@ function startValue(
   let best = Number.POSITIVE_INFINITY;
   let index = 0;
   problem.baseOptions.forEach((base, i) => {
-    const v = base.price + cost[gridIndex(axes, problem.maxSlots, base.offset)];
+    const bonus = base.synthetic ? null : problem.startBonus;
+    const v =
+      base.price +
+      mix(bonus, (delta) => cost[gridIndex(axes, problem.maxSlots, base.offset + delta)]);
     if (v < best) {
       best = v;
       index = i;

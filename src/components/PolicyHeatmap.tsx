@@ -36,21 +36,25 @@ export function PolicyHeatmap({
   const { axes } = cost;
 
   const maxGain = Math.max(...problem.scrolls.map((s) => s.attackGain));
-  const maxRealOffset = Math.max(
-    ...problem.baseOptions.filter((b) => !b.synthetic).map((b) => b.offset),
-  );
-  const minOffset = Math.min(...problem.baseOptions.map((b) => b.offset));
+  const realOffsets = problem.baseOptions.filter((b) => !b.synthetic).map((b) => b.offset);
+
+  // 리버스 레벨업이 있으면 매물이 이미 공격력을 달고 나온다. 시작 가능한 공격력이
+  // 여러 개라 도달 범위도, 출발 표시도 그만큼 넓어진다.
+  const bonuses = problem.startBonus?.length
+    ? problem.startBonus.filter((o) => o.probability > 0).map((o) => o.value)
+    : [0];
+  const startAttacks = new Set(realOffsets.flatMap((o) => bonuses.map((b) => o + b)));
+  const maxStart = Math.max(...startAttacks);
+  const minOffset = Math.min(...problem.baseOptions.map((b) => b.offset), ...startAttacks);
 
   const columns: number[] = [];
   for (let a = axes.attackMin; a <= problem.target; a++) columns.push(a);
-
-  const start = problem.baseOptions[cost.bestBaseIndex];
 
   const cellOf = (slots: number, attack: number): Cell => {
     const i = slots * axes.span + (attack - axes.attackMin);
     const action = decodeAction(cost.policy[i]);
     const reachable =
-      attack >= minOffset && attack <= maxRealOffset + (problem.maxSlots - slots) * maxGain;
+      attack >= minOffset && attack <= maxStart + (problem.maxSlots - slots) * maxGain;
 
     let label = '';
     let color = 'transparent';
@@ -105,7 +109,7 @@ export function PolicyHeatmap({
                   <th className="tabular pr-1 text-right font-normal text-ink-3">{slots}회</th>
                   {columns.map((attack) => {
                     const cell = cellOf(slots, attack);
-                    const isStart = slots === problem.maxSlots && attack === start.offset;
+                    const isStart = slots === problem.maxSlots && startAttacks.has(attack);
                     const isSelected =
                       selected?.slots === slots && selected?.attack === attack;
                     if (!cell.reachable) {
@@ -165,8 +169,8 @@ export function PolicyHeatmap({
             </>
           ) : (
             <span className="text-ink-3">
-              격자 칸에 커서를 올리면 상세가 보이고, 누르면 아래 판정기에 들어갑니다. 금색 테두리가
-              출발 지점입니다.
+              격자 칸에 커서를 올리면 상세가 보이고, 누르면 아래 판정기에 들어갑니다. 금색
+              테두리가 출발 지점입니다{startAttacks.size > 1 && ' — 리버스 레벨업 결과에 따라 여러 곳에서 시작합니다'}.
             </span>
           )}
         </div>

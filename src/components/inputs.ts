@@ -1,5 +1,5 @@
 import { DEFAULT_PRESET_ID, findPreset, withPrices } from '@/lib/enhance/data/presets';
-import type { Problem } from '@/lib/enhance';
+import { convolve, type Outcome, type Problem } from '@/lib/enhance';
 import { MAN } from '@/lib/format';
 
 /** 화면에서 다루는 입력. 금액은 전부 **만 메소** 단위다. */
@@ -13,6 +13,22 @@ export interface Inputs {
   resale: Record<number, number | null>;
   budget: number | null;
   allowRestart: boolean;
+  reverse: ReverseInputs;
+}
+
+/**
+ * 리버스 무기의 아이템 레벨업.
+ *
+ * 확률은 유출된 값이 아니라 유저들의 추정이라 전부 조절 가능하다.
+ * 강화 분석에 실제로 들어가는 건 공격력뿐이고, 주스탯/부스탯은 참고용 분포만 보여 준다
+ * (엔진이 공격력 하나로 상태를 잡고 있어서, 스탯까지 넣으면 격자가 통째로 커진다).
+ */
+export interface ReverseInputs {
+  enabled: boolean;
+  levels: number;
+  attack: Outcome[];
+  mainStat: Outcome[];
+  subStat: Outcome[];
 }
 
 export const BASE_OFFSETS = [-2, -1, 0, 1, 2] as const;
@@ -39,7 +55,30 @@ export const DEFAULT_INPUTS: Inputs = {
   resale: { 0: 50, 2: 280, 4: 350, 5: 380, 6: 400, 7: 600, 8: 900 },
   budget: 5000,
   allowRestart: true,
+  reverse: {
+    enabled: false,
+    levels: 3,
+    attack: [
+      { value: 0, probability: 0.3 },
+      { value: 1, probability: 0.5 },
+      { value: 2, probability: 0.2 },
+    ],
+    mainStat: [
+      { value: 1, probability: 0.6 },
+      { value: 2, probability: 0.4 },
+    ],
+    subStat: [
+      { value: 0, probability: 0.6 },
+      { value: 1, probability: 0.4 },
+    ],
+  },
 };
+
+/** 레벨업을 n회 마쳤을 때의 누적 분포. 안 쓰면 null. */
+export function reverseAttackBonus(reverse: ReverseInputs, levels = reverse.levels): Outcome[] | null {
+  if (!reverse.enabled || levels <= 0) return null;
+  return convolve(reverse.attack, levels);
+}
 
 /** 화면 입력 → 엔진 입력. 필수 항목이 비면 null 을 준다. */
 export function toProblem(inputs: Inputs): Problem | null {
@@ -71,5 +110,6 @@ export function toProblem(inputs: Inputs): Problem | null {
     target: Math.min(60, Math.round(inputs.target)),
     salvage: byAttack.length ? { byAttack } : null,
     allowRestart: inputs.allowRestart,
+    startBonus: reverseAttackBonus(inputs.reverse),
   };
 }

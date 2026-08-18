@@ -1,4 +1,5 @@
-import { gridIndex, makeAxes, type Problem, type SalvageModel } from './types';
+import { mix } from './distribution';
+import { gridIndex, makeAxes, type BaseOption, type Problem, type SalvageModel } from './types';
 
 export interface EnhanceSalvage {
   /** 상태 (남은 업횟, 공격력) 의 이론가 */
@@ -98,6 +99,22 @@ export function prepareProblem(problem: Problem): Problem {
       { offset: problem.target, price: finishedPrice, label: '완성품 직접 구매', synthetic: true },
     ],
   };
+}
+
+/**
+ * 갓 사온 매물 하나의 이론가.
+ *
+ * 리버스 무기처럼 시작 공격력이 랜덤이면 레벨업 분포로 섞는다 — 아직 안 굴린 무기의
+ * 값어치는 굴림 결과의 기댓값이다.
+ */
+export function baseFairValue(
+  problem: Problem,
+  salvageAt: (slotsLeft: number, attack: number) => number,
+  base: BaseOption,
+): number {
+  return mix(base.synthetic ? null : problem.startBonus, (delta) =>
+    salvageAt(problem.maxSlots, base.offset + delta),
+  );
 }
 
 type Point = { attack: number; price: number };

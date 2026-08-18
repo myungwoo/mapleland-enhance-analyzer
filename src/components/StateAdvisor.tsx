@@ -1,6 +1,6 @@
 'use client';
 
-import { advise, type Analysis } from '@/lib/enhance';
+import { advise, type Analysis, type Outcome } from '@/lib/enhance';
 import { formatMeso } from '@/lib/format';
 import { NumberField, Panel } from './ui';
 
@@ -8,15 +8,24 @@ export function StateAdvisor({
   analysis,
   state,
   onChange,
+  pendingLevels,
+  maxPendingLevels,
+  pendingLevelBonus,
+  onPendingLevelsChange,
 }: {
   analysis: Analysis;
   state: { slots: number; attack: number };
   onChange: (next: { slots: number; attack: number }) => void;
+  /** 아직 안 굴린 리버스 레벨업 횟수 */
+  pendingLevels: number;
+  maxPendingLevels: number;
+  pendingLevelBonus: Outcome[] | null;
+  onPendingLevelsChange: (levels: number) => void;
 }) {
   const { problem, cost } = analysis;
   const slots = clamp(state.slots, 0, problem.maxSlots);
   const attack = clamp(state.attack, cost.axes.attackMin, problem.target);
-  const advice = advise(problem, cost, slots, attack);
+  const advice = advise(problem, cost, slots, attack, pendingLevelBonus);
 
   const next =
     advice.action.kind === 'scroll'
@@ -30,6 +39,7 @@ export function StateAdvisor({
           : '방법 없음';
 
   const keepIsBetter = advice.advantageOverRestart > 0;
+  const headline = advice.levelUpFirst ? `레벨업 먼저 (${pendingLevels}회 남음)` : next;
 
   return (
     <Panel title="내 무기 판정" hint="지금 들고 있는 무기 상태를 넣어 보세요">
@@ -51,11 +61,27 @@ export function StateAdvisor({
             min={cost.axes.attackMin}
             max={problem.target}
           />
+          {maxPendingLevels > 0 && (
+            <NumberField
+              label="남은 레벨업"
+              value={pendingLevels}
+              onChange={(v) => onPendingLevelsChange(v ?? 0)}
+              suffix="회"
+              min={0}
+              max={maxPendingLevels}
+            />
+          )}
         </div>
 
         <div className="inset flex-1 px-3 py-2">
           <div className="text-[11px] text-ink-3">지금 할 일</div>
-          <div className="mt-1 text-[16px] text-gold">{next}</div>
+          <div className="mt-1 text-[16px] text-gold">{headline}</div>
+          {advice.levelUpFirst && (
+            <p className="mt-1 text-[11px] leading-relaxed text-ink-2">
+              레벨업은 메소가 안 들고 결과까지 보여 줍니다. 먼저 굴리고 나면 그때 {next} 쪽으로
+              갈 가능성이 높습니다. 아래 값들은 남은 굴림을 평균 낸 것입니다.
+            </p>
+          )}
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
             <dt className="text-ink-3">여기서 목표까지</dt>
             <dd className="tabular text-right text-ink-1">{formatMeso(advice.remainingCost)}</dd>

@@ -1,3 +1,4 @@
+import { mix } from './distribution';
 import { tickCost } from './grid';
 import { makeEnhanceSalvage, prepareProblem } from './salvage';
 import {
@@ -63,6 +64,17 @@ export function solveMaxSuccess(input: Problem, options: BudgetOptions): BudgetS
   const scrolls = problem.scrolls;
   const scrollTicks = scrolls.map((s) => tickCost(s.price, tick));
   const buyTicks = problem.baseOptions.map((b) => tickCost(b.price, tick, 1));
+
+  /**
+   * 매물 v 를 산 직후의 값. 리버스 무기처럼 시작 공격력이 랜덤이면 분포로 섞는다.
+   * 합성 매물(완성품 직접 구매)은 이미 목표를 만족한 물건이라 분포를 타지 않는다.
+   */
+  const valueAfterBuying = (plane: number, v: number) => {
+    const base = problem.baseOptions[v];
+    return mix(base.synthetic ? null : problem.startBonus, (delta) =>
+      prob[plane + gridIndex(axes, maxSlots, base.offset + delta)],
+    );
+  };
   // 재시작 순비용은 (u, a) 마다 달라지므로 상태별로 계산한다.
 
   for (let b = 0; b <= ticks; b++) {
@@ -109,10 +121,9 @@ export function solveMaxSuccess(input: Problem, options: BudgetOptions): BudgetS
           // 예산 축은 음수 지출을 표현하지 못한다. 회수액이 새 매물값을 넘는 만큼은
           // 재투자되지 않는 것으로 보수적으로 처리한다.
           const t = tickCost(Math.max(0, problem.baseOptions[v].price - recovered), tick, 1);
-          const target = gridIndex(axes, maxSlots, problem.baseOptions[v].offset);
           let value = 0;
-          if (b >= t.lo) value += (1 - t.pHi) * prob[(b - t.lo) * planeSize + target];
-          if (t.pHi > 0 && b >= t.hi) value += t.pHi * prob[(b - t.hi) * planeSize + target];
+          if (b >= t.lo) value += (1 - t.pHi) * valueAfterBuying((b - t.lo) * planeSize, v);
+          if (t.pHi > 0 && b >= t.hi) value += t.pHi * valueAfterBuying((b - t.hi) * planeSize, v);
           if (value > best) {
             best = value;
             bestAction = ACTION_RESTART_BASE + v;
@@ -133,10 +144,9 @@ export function solveMaxSuccess(input: Problem, options: BudgetOptions): BudgetS
     let bestBase = 0;
     for (let v = 0; v < problem.baseOptions.length; v++) {
       const t = buyTicks[v];
-      const target = gridIndex(axes, maxSlots, problem.baseOptions[v].offset);
       let value = 0;
-      if (b >= t.lo) value += (1 - t.pHi) * prob[(b - t.lo) * planeSize + target];
-      if (t.pHi > 0 && b >= t.hi) value += t.pHi * prob[(b - t.hi) * planeSize + target];
+      if (b >= t.lo) value += (1 - t.pHi) * valueAfterBuying((b - t.lo) * planeSize, v);
+      if (t.pHi > 0 && b >= t.hi) value += t.pHi * valueAfterBuying((b - t.hi) * planeSize, v);
       if (value > best) {
         best = value;
         bestBase = v;
@@ -146,13 +156,17 @@ export function solveMaxSuccess(input: Problem, options: BudgetOptions): BudgetS
     if (b === ticks) firstBaseIndex = bestBase;
   }
 
-  const afterBuy = ticks - buyTicks[firstBaseIndex].lo;
+  // 시작 공격력이 랜덤이면 첫 수도 굴림 결과에 달렸다. 가장 흔한 굴림을 대표로 쓴다.
+  const likelyBonus = problem.startBonus?.length
+    ? problem.startBonus.reduce((a, b) => (b.probability > a.probability ? b : a)).value
+    : 0;
+  const budgetAfterBuy = ticks - buyTicks[firstBaseIndex].lo;
   const firstAction: Action =
-    afterBuy >= 0
+    budgetAfterBuy >= 0
       ? decodeAction(
           policy[
-            afterBuy * planeSize +
-              gridIndex(axes, maxSlots, problem.baseOptions[firstBaseIndex].offset)
+            budgetAfterBuy * planeSize +
+              gridIndex(axes, maxSlots, problem.baseOptions[firstBaseIndex].offset + likelyBonus)
           ],
         )
       : { kind: 'infeasible' };

@@ -1,4 +1,5 @@
-import type { Problem } from '../types';
+import { convolve } from '../distribution';
+import type { Outcome, Problem } from '../types';
 
 /** 테스트에서 쓰는 현실적인 기준 문제 (한손검, 업횟 7, 목표 +7). */
 export function baseProblem(overrides: Partial<Problem> = {}): Problem {
@@ -32,6 +33,25 @@ export function baseProblem(overrides: Partial<Problem> = {}): Problem {
     allowRestart: true,
     ...overrides,
   };
+}
+
+/** 리버스 무기 레벨업 1회당 공격력 — 유저들이 쓰는 추정값 */
+export const REVERSE_PER_LEVEL: Outcome[] = [
+  { value: 0, probability: 0.3 },
+  { value: 1, probability: 0.5 },
+  { value: 2, probability: 0.2 },
+];
+
+/**
+ * 시작 공격력이 랜덤인 문제 (리버스 무기).
+ * 매물가는 레벨업 기댓값이 얹힌 이론가보다 위여야 앞뒤가 맞는다.
+ */
+export function reverseProblem(overrides: Partial<Problem> = {}): Problem {
+  return baseProblem({
+    baseOptions: [{ offset: 0, price: 30_000_000, label: '리버스' }],
+    startBonus: convolve(REVERSE_PER_LEVEL, 3),
+    ...overrides,
+  });
 }
 
 /** 결정론적 시뮬레이션을 위한 32비트 LCG. */
