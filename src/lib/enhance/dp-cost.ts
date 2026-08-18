@@ -259,7 +259,16 @@ function startNoRestart(
 }
 
 /**
- * R ← f(R) 단조 반복으로 최소 고정점을 찾는다.
+ * f(R) = R 인 최소 고정점을 이분탐색으로 찾는다.
+ *
+ * g(R) = f(R) − R 은 비증가다 (f 는 비감소이고 기울기가 손절 확률 ≤ 1). 따라서
+ * {R : g(R) ≤ 0} 은 위쪽 집합이고, 구간만 잡으면 이분탐색이 최소 고정점에 확실히 닿는다.
+ *
+ * 예전에는 R ← f(R) 반복 대입에 Aitken 가속을 얹어 썼는데, 손절 확률이 1 에 가까운
+ * 빡센 목표에서는 수렴이 한없이 느려져 횟수 제한에 걸렸다. 그때 조용히 어중간한 값을
+ * 돌려주는 바람에 정책과 예산 축이 통째로 어그러졌다 (목표 16 과 18 이 똑같이 3.005억이
+ * 나오고, 비용 CDF 는 coverage 0 이 되어 분위수가 무한대로 튀었다).
+ *
  * f(0) 이 0 이하면 손절만으로 돈이 느는 시세라 최소비용이 아래로 발산한다.
  */
 function iterateValue(
@@ -272,27 +281,20 @@ function iterateValue(
   const first = f(0);
   if (!(first > 0) || !Number.isFinite(first)) return { value: Number.NaN, diverged: true };
 
-  let R = 0;
-  for (let i = 0; i < 300; i++) {
-    const r1 = f(R);
-    const r2 = f(r1);
-    const d1 = r1 - R;
-    const d2 = r2 - r1;
-
-    let next = r2;
-    const denom = d1 - d2;
-    if (denom > 1e-12) {
-      const accelerated = R + (d1 * d1) / denom;
-      // 고정점을 지나쳤으면 f(x) < x 가 된다. 그때는 가속값을 버린다.
-      if (accelerated > r2 && Number.isFinite(accelerated) && f(accelerated) >= accelerated) {
-        next = accelerated;
-      }
-    }
-
-    if (Math.abs(next - R) <= 1e-10 * Math.max(1, next)) return { value: next, diverged: false };
-    R = next;
+  // g(hi) ≤ 0 인 상한을 배가로 찾는다. R* 를 넘어서면 f 의 기울기가 1 미만이라 반드시 잡힌다.
+  let hi = Math.max(1, first);
+  for (let i = 0; f(hi) > hi; i++) {
+    hi *= 2;
+    if (i > 200 || !Number.isFinite(hi)) return { value: Number.NaN, diverged: true };
   }
-  return { value: R, diverged: false };
+
+  let lo = 0;
+  for (let i = 0; i < 200 && hi - lo > 1e-9 * Math.max(1, hi); i++) {
+    const mid = (lo + hi) / 2;
+    if (f(mid) <= mid) hi = mid;
+    else lo = mid;
+  }
+  return { value: hi, diverged: false };
 }
 
 /** R 을 고정한 채 C[u][a] 를 채운다. */

@@ -37,3 +37,28 @@ describe('최악 입력의 계산 시간', () => {
     expect(time(worst)).toBeLessThan(time(few) * 20 + 200);
   });
 });
+
+/**
+ * 고정점을 반복 대입으로 풀던 시절, 손절 확률이 1 에 가까운 빡센 목표에서 횟수 제한에
+ * 걸려 조용히 어중간한 값을 돌려줬다. 목표 16 과 18 이 똑같이 3.005억으로 나왔고,
+ * 그 값으로 예산 축이 좁아져 비용 CDF 가 통째로 0 이 되고 분위수가 무한대로 튀었다.
+ * 화면에서는 SVG 좌표가 NaN 이 되어 콘솔 에러로 드러났다.
+ */
+describe('빡센 목표에서도 고정점이 수렴한다', () => {
+  const targets = [14, 15, 16, 17, 18, 20];
+  const solved = targets.map((target) => analyze(baseProblem({ target })));
+
+  it('목표가 오를수록 기대비용이 엄격히 증가한다', () => {
+    for (let i = 1; i < solved.length; i++) {
+      expect(solved[i].cost.expectedCost).toBeGreaterThan(solved[i - 1].cost.expectedCost);
+    }
+  });
+
+  it('분위수가 무한대로 튀지 않는다', () => {
+    for (const r of solved) {
+      const q = r.distribution!.quantiles;
+      for (const v of [q.p50, q.p75, q.p90, q.p99]) expect(Number.isFinite(v)).toBe(true);
+      expect(r.distribution!.coverage).toBeGreaterThan(0.99);
+    }
+  });
+});

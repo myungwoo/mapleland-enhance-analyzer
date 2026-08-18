@@ -3,9 +3,9 @@ import { solveMaxSuccess } from '../dp-budget';
 import { solveMinCost } from '../dp-cost';
 import { attackDistribution, costDistribution, successProbabilities } from '../evaluate';
 import { breakevenPrices } from '../breakeven';
-import { baseValues } from '../index';
+import { analyze, baseValues } from '../index';
 import { prepareProblem } from '../salvage';
-import { gridIndex } from '../types';
+import { decodeAction, gridIndex } from '../types';
 import { baseProblem } from './fixtures';
 
 describe('비용 분포', () => {
@@ -268,7 +268,9 @@ describe('매물별 살 만한 상한', () => {
     for (const b of values) {
       if (b.offset === prepared.baseOptions[solution.bestBaseIndex].offset) continue;
       const ahead = solution.cost[gridIndex(solution.axes, problem.maxSlots, b.offset)];
-      expect(b.worthPayingUpTo).toBeCloseTo(solution.expectedCost - ahead, 3);
+      const expected = solution.expectedCost - ahead;
+      // 메소 단위라 절대 오차로 재면 이분탐색 정밀도(상대 1e-9)에 걸린다.
+      expect(Math.abs(b.worthPayingUpTo - expected) / expected).toBeLessThan(1e-6);
     }
   });
 
@@ -287,5 +289,83 @@ describe('매물별 살 만한 상한', () => {
     const only = baseProblem({ target: 10, baseOptions: [{ offset: 0, price: 4_000_000 }] });
     const solved = solveMinCost(only);
     expect(baseValues(only, solved)[0].worthPayingUpTo).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe('두 곡선을 나란히 놓을 때', () => {
+  // 화면에서 겹쳐 그리므로 "초록이 파랑 아래로 내려가지 않는다"가 눈에 보이는 약속이 된다.
+  // 예산 곡선이 비용 곡선보다 짧으면 그 뒤가 평평해져 역전처럼 보이던 적이 있다.
+  const cases = [
+    ['예산 없음', {}],
+    ['예산 설정', { budget: 40_000_000 }],
+  ] as const;
+
+  it.each(cases)('%s — 예산 최적 곡선이 비용 최적 곡선 아래로 내려가지 않는다', (_label, opts) => {
+    const result = analyze(baseProblem({ target: 12 }), opts);
+    const cdf = result.distribution!;
+    const budget = result.budget!;
+
+    for (let i = 0; i <= budget.ticks; i++) {
+      const spend = i * budget.tick;
+      const fixed = cdf.cdf[Math.min(cdf.ticks, Math.round(spend / cdf.tick))];
+      expect(budget.curve[i]).toBeGreaterThan(fixed - 0.02);
+    }
+  });
+
+  it('두 곡선이 같은 구간을 덮는다', () => {
+    const result = analyze(baseProblem({ target: 12 }));
+    const budgetEnd = (result.budget!.curve.length - 1) * result.budget!.tick;
+    // 비용 곡선이 사실상 끝나는 지점까지는 예산 곡선도 그려져야 비교가 된다.
+    const cdf = result.distribution!;
+    const settled = cdf.cdf[cdf.ticks] * 0.999;
+    let meaningfulEnd = cdf.ticks * cdf.tick;
+    for (let i = 0; i <= cdf.ticks; i++) {
+      if (cdf.cdf[i] >= settled) {
+        meaningfulEnd = i * cdf.tick;
+        break;
+      }
+    }
+    expect(budgetEnd).toBeGreaterThanOrEqual(meaningfulEnd * 0.99);
+  });
+
+  it('예산을 넣으면 그 지점의 확률을 따로 알려준다', () => {
+    const result = analyze(baseProblem({ target: 12 }), { budget: 40_000_000 });
+    expect(result.budgetIsAuto).toBe(false);
+    expect(result.budgetProbability).toBeGreaterThan(0);
+    expect(result.budgetProbability).toBeLessThan(1);
+    expect(analyze(baseProblem({ target: 12 })).budgetProbability).toBeNull();
+  });
+});
+
+describe('남은 예산에 따른 최적 수', () => {
+  const problem = baseProblem({ target: 12 });
+  const budget = solveMaxSuccess(problem, { budget: 200_000_000, ticks: 1500 });
+  const cost = solveMinCost(problem);
+
+  it('남은 예산이 많아질수록 달성 확률이 오른다', () => {
+    let prev = -1;
+    for (const remaining of [0, 1e7, 3e7, 6e7, 1e8, 2e8]) {
+      const chance = budget.chanceAt(4, 4, remaining);
+      expect(chance).toBeGreaterThanOrEqual(prev - 1e-9);
+      prev = chance;
+    }
+  });
+
+  it('예산이 빠듯할 때는 최소비용 전략과 다른 수를 둔다', () => {
+    // 이 차이가 예산 곡선이 비용 곡선 위로 벌어지는 이유다. 하나라도 갈리지 않으면
+    // 두 곡선을 나란히 보여 줄 이유도 없다.
+    const differs = [];
+    for (let u = 1; u <= problem.maxSlots; u++) {
+      for (let a = -1; a <= 8; a++) {
+        const byCost = decodeAction(cost.policy[gridIndex(cost.axes, u, a)]);
+        const byBudget = budget.actionAt(u, a, 30_000_000);
+        if (JSON.stringify(byCost) !== JSON.stringify(byBudget)) differs.push([u, a]);
+      }
+    }
+    expect(differs.length).toBeGreaterThan(0);
+  });
+
+  it('돈이 없으면 아무것도 못 한다', () => {
+    expect(budget.chanceAt(5, 0, 0)).toBe(0);
   });
 });
