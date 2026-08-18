@@ -1,7 +1,17 @@
-# 메이플랜드 주문서 강화 분석기
+# 🍁 메이플랜드 주문서 강화 분석기
+
+[![Website - Live](https://img.shields.io/badge/Website-Live-2ea44f?style=flat&logo=githubpages)](https://myungwoo.github.io/mapleland-enhance-analyzer/)
+[![Deploy](https://github.com/myungwoo/mapleland-enhance-analyzer/actions/workflows/deploy.yml/badge.svg)](.github/workflows/deploy.yml)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4.x-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Vitest](https://img.shields.io/badge/Vitest-36%20passing-6E9F18?logo=vitest&logoColor=white)](src/lib/enhance/__tests__)
 
 무기 주문서 강화에서 **목표 공격력까지의 최소 기대비용 전략**과 **예산 제약 하 달성 확률**을
 계산한다. 시뮬레이션이 아니라 동적계획 엄밀해다.
+
+**바로 사용하기 → [myungwoo.github.io/mapleland-enhance-analyzer](https://myungwoo.github.io/mapleland-enhance-analyzer/)**
+(설치 없이 브라우저에서 동작하고, 계산은 전부 로컬에서 끝난다)
 
 ```bash
 npm run dev        # 웹 UI
