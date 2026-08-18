@@ -39,7 +39,7 @@ export function StateAdvisor({
             label="남은 업횟"
             value={slots}
             onChange={(v) => onChange({ slots: v ?? 0, attack })}
-            suffix="칸"
+            suffix="회"
             min={0}
             max={problem.maxSlots}
           />

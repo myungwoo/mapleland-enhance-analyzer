@@ -14,7 +14,7 @@ function fair(scrolls: ScrollSpec[], salvage: SalvageModel, maxSlots: number, ta
     allowRestart: true,
   };
   const { salvage: W } = makeEnhanceSalvage(p);
-  console.log(`  이론가 (업횟 ${maxSlots}칸): 하옵 ${(W(maxSlots, -1) / 만).toFixed(0)}만 / 정옵 ${(W(maxSlots, 0) / 만).toFixed(0)}만 / 상옵 ${(W(maxSlots, 1) / 만).toFixed(0)}만`);
+  console.log(`  이론가 (업횟 ${maxSlots}회): 하옵 ${(W(maxSlots, -1) / 만).toFixed(0)}만 / 정옵 ${(W(maxSlots, 0) / 만).toFixed(0)}만 / 상옵 ${(W(maxSlots, 1) / 만).toFixed(0)}만`);
   for (let u = 0; u <= maxSlots; u++) {
     const row = [];
     for (let a = -1; a <= target; a++) row.push(`${(W(u, a) / 만).toFixed(0)}`.padStart(6));

@@ -84,7 +84,7 @@ export function solveMinCost(input: Problem): CostSolution {
   if (!reachableByScrolling && !Number.isFinite(finishedPrice)) {
     const empty = sweep(problem, { ...ctx, allowRestart: false }, 0);
     warnings.push(
-      `목표 +${problem.target} 은 업횟 ${problem.maxSlots}칸으로 도달할 수 없습니다. ` +
+      `목표 +${problem.target} 은 업횟 ${problem.maxSlots}회로 도달할 수 없습니다. ` +
         '목표를 낮추거나 업횟이 더 많은 무기를 쓰세요.',
     );
     return finish({
@@ -97,7 +97,7 @@ export function solveMinCost(input: Problem): CostSolution {
   }
   if (!reachableByScrolling) {
     warnings.push(
-      `목표 +${problem.target} 은 업횟 ${problem.maxSlots}칸으로 직접 만들 수 없어 ` +
+      `목표 +${problem.target} 은 업횟 ${problem.maxSlots}회로 직접 만들 수 없어 ` +
         '완성품 구매만이 답입니다.',
     );
   }

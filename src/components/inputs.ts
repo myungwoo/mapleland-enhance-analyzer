@@ -9,7 +9,7 @@ export interface Inputs {
   target: number;
   scrollPrices: Record<string, number | null>;
   bases: Array<{ offset: number; price: number | null }>;
-  /** 업횟 0칸 기준 공격력별 시세 (공격력 → 만 메소) */
+  /** 업횟 0회 기준 공격력별 시세 (공격력 → 만 메소) */
   resale: Record<number, number | null>;
   budget: number | null;
   allowRestart: boolean;

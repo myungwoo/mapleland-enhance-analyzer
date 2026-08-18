@@ -22,7 +22,7 @@ const problem: Problem = {
     { offset: 1, price: 1500 * 만, label: '공1상' },
   ],
   target: 10,
-  // 업횟 0칸 기준 공격력별 시세. 매물가는 이 곡선에서 유도되는 이론가 위여야
+  // 업횟 0회 기준 공격력별 시세. 매물가는 이 곡선에서 유도되는 이론가 위여야
   // 앞뒤가 맞는다 (npm run diag 로 확인).
   salvage: {
     byAttack: [
@@ -50,7 +50,7 @@ const result = analyze(problem, { budget: 5000 * 만, includeBreakeven: true });
 const { cost, distribution, outcome, budget, breakeven, strategies } = result;
 
 console.log('═'.repeat(64));
-console.log(`한손검 업횟 ${problem.maxSlots}칸 → 목표 공${problem.target}`);
+console.log(`한손검 업횟 ${problem.maxSlots}회 → 목표 공${problem.target}`);
 console.log('═'.repeat(64));
 
 for (const w of result.warnings) console.log(`⚠  ${w}`);
@@ -94,7 +94,7 @@ for (let u = problem.maxSlots; u >= 0; u--) {
       ).padStart(6),
     );
   }
-  console.log(`${String(u).padStart(2)}칸  ` + row.join(''));
+  console.log(`${String(u).padStart(2)}회  ` + row.join(''));
 }
 
 console.log('\n── 전략 비교 ──');
@@ -151,7 +151,7 @@ for (const [slots, attack] of [
           ? '이미 달성'
           : '방법 없음';
   console.log(
-    `  공${attack} ${slots}칸 남음 → ${next.padEnd(18)} ` +
+    `  공${attack} ${slots}회 남음 → ${next.padEnd(18)} ` +
       `남은 기대비용 ${money(a.remainingCost).padStart(8)}, 지금 팔면 ${money(a.salvageValue).padStart(8)}`,
   );
 }

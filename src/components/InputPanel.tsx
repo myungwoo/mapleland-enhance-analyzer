@@ -46,7 +46,7 @@ export function InputPanel({
             label="업횟"
             value={inputs.maxSlots}
             onChange={(v) => patch({ maxSlots: v ?? 1 })}
-            suffix="칸"
+            suffix="회"
             min={1}
             max={20}
           />
@@ -115,7 +115,7 @@ export function InputPanel({
         </div>
       </Panel>
 
-      <Panel title="완작 시세" hint="업횟 0칸 기준, 아는 것만">
+      <Panel title="완작 시세" hint="업횟 0회 기준, 아는 것만">
         <p className="mb-2 text-[11px] leading-relaxed text-ink-3">
           남은 업횟의 값어치는 엔진이 이 곡선과 주문서 값에서 유도합니다. 목표 시세를 비워
           두면 &ldquo;직접 만들어야 하는&rdquo; 상황으로 계산합니다.
