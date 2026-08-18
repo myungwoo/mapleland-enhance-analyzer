@@ -4,7 +4,7 @@ import { solveMinCost } from '../dp-cost';
 import { attackDistribution, costDistribution, successProbabilities } from '../evaluate';
 import { breakevenPrices } from '../breakeven';
 import { analyze, baseValues } from '../index';
-import { prepareProblem } from '../salvage';
+import { makeSalvageFn, prepareProblem } from '../salvage';
 import { decodeAction, gridIndex } from '../types';
 import { baseProblem } from './fixtures';
 
@@ -146,6 +146,44 @@ describe('시세 입력 이상 감지', () => {
     const solution = solveMinCost(baseProblem());
     expect(solution.salvageMode).toBe('market');
     expect(solution.warnings).toEqual([]);
+  });
+});
+
+describe('완작 시세 곡선', () => {
+  const priceAt = makeSalvageFn({
+    byAttack: [
+      { attack: 0, price: 200_000 },
+      { attack: 2, price: 1_200_000 },
+      { attack: 4, price: 2_500_000 },
+    ],
+  });
+
+  it('점 사이는 기하 보간이다', () => {
+    expect(priceAt(1)).toBeCloseTo(Math.sqrt(200_000 * 1_200_000), 6);
+  });
+
+  it('최저 점 아래는 그 값이 바닥으로 깔린다', () => {
+    // 어느 선 밑으로는 완작이라도 유저끼리 안 팔리고 상점 판매가가 회수의 전부다.
+    // 곡선을 연장해 0 근처로 떨어뜨리면 하옵 완작의 회수를 실제보다 낮게 본다.
+    for (const a of [-1, -3, -5]) expect(priceAt(a)).toBe(200_000);
+  });
+
+  it('최고 점 위로는 외삽하지 않는다', () => {
+    // 공격력당 2배씩 뛰는 곡선을 연장하면 값이 폭주하고 없던 차익거래가 생긴다.
+    for (const a of [5, 8, 20]) expect(priceAt(a)).toBe(2_500_000);
+  });
+
+  it('상점행이 싫으면 최저 칸에 0 을 적어 바닥을 없앤다', () => {
+    const noShop = makeSalvageFn({
+      byAttack: [
+        { attack: 0, price: 0 },
+        { attack: 2, price: 1_200_000 },
+      ],
+    });
+    expect(noShop(-2)).toBe(0);
+    expect(noShop(0)).toBe(0);
+    // 0 이 끼면 기하 보간이 성립하지 않아 산술 보간으로 떨어진다.
+    expect(noShop(1)).toBeCloseTo(600_000, 6);
   });
 });
 
