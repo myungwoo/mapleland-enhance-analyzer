@@ -150,10 +150,38 @@ describe('상태의 이론가', () => {
   const problem = baseProblem();
   const solution = solveMinCost(problem);
 
-  it('업횟이 남을수록 값이 오른다', () => {
-    for (let u = 1; u <= problem.maxSlots; u++) {
-      expect(solution.salvageAt(u, 0)).toBeGreaterThanOrEqual(solution.salvageAt(u - 1, 0));
+  it('업횟 0회의 이론가가 입력한 완작 시세 그대로다', () => {
+    for (const point of problem.salvage!.byAttack) {
+      expect(solution.salvageAt(0, point.attack)).toBeCloseTo(point.price, 6);
     }
+  });
+
+  it('업횟이 남으면 팔 수 없으니 주문서로 태운 값만 남는다', () => {
+    // 완작 시세로 바닥을 받쳐 주지 않는다 — 남은 업횟은 다 태워야 팔린다.
+    for (let u = 1; u <= problem.maxSlots; u++) {
+      for (let a = -1; a <= 6; a++) {
+        const best = Math.max(
+          ...problem.scrolls.map(
+            (s) =>
+              s.successRate * solution.salvageAt(u - 1, a + s.attackGain) +
+              (1 - s.successRate) * solution.salvageAt(u - 1, a) -
+              s.price,
+          ),
+        );
+        expect(solution.salvageAt(u, a)).toBeCloseTo(Math.max(0, best), 6);
+      }
+    }
+  });
+
+  it('주문서가 값어치보다 비싸면 남은 업횟이 오히려 부채가 된다', () => {
+    // 팔려면 태워야 하는데 태우는 값이 더 비싼 구간이 실제로 존재한다.
+    const liability = [];
+    for (let u = 1; u <= problem.maxSlots; u++) {
+      for (let a = -1; a <= 6; a++) {
+        if (solution.salvageAt(u, a) < solution.salvageAt(0, a) - 1e-6) liability.push([u, a]);
+      }
+    }
+    expect(liability.length).toBeGreaterThan(0);
   });
 
   it('공격력이 높을수록 값이 오른다', () => {
