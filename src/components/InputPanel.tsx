@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { asset } from '@/lib/asset';
+import { makeSalvageFn } from '@/lib/enhance';
 import { PRESETS, findPreset } from '@/lib/enhance/data/presets';
 import { BASE_OFFSETS, baseLabel, type Inputs } from './inputs';
 import { OutcomeEditor } from './OutcomeEditor';
@@ -19,6 +20,18 @@ export function InputPanel({
 
   const resaleRows: number[] = [];
   for (let a = 0; a <= inputs.target; a++) resaleRows.push(a);
+
+  // 비워 둔 칸에는 곡선이 예측한 값을 회색으로 띄운다. 실제 시세와 얼마나 어긋나는지
+  // 눈으로 보고 고칠 수 있어야 한다. 보간은 배율에 무관해서 만 단위 그대로 넣어도 된다.
+  const knownResale = resaleRows
+    .filter((a) => inputs.resale[a] != null && Number.isFinite(inputs.resale[a] as number))
+    .map((a) => ({ attack: a, price: inputs.resale[a] as number }));
+  const predictResale = knownResale.length ? makeSalvageFn({ byAttack: knownResale }) : null;
+  // 입력한 최고 공격력 위쪽은 예측이 아니다 — 곡선이 폭주해서 일부러 외삽을 안 한다.
+  // 거기까지 숫자를 띄우면 없는 근거를 있는 것처럼 보이게 한다.
+  const predictableUpTo = knownResale.length
+    ? Math.max(...knownResale.map((p) => p.attack))
+    : -Infinity;
 
   return (
     <div className="flex flex-col gap-3">
@@ -95,12 +108,13 @@ export function InputPanel({
       </Panel>
 
       <Panel title="베이스 매물 시세" hint="빈칸은 안 삼">
-        <div className="flex flex-col gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5">
           {BASE_OFFSETS.map((offset) => {
             const row = inputs.bases.find((b) => b.offset === offset);
             return (
               <NumberField
                 key={offset}
+                compact
                 label={baseLabel(offset)}
                 value={row?.price ?? null}
                 onChange={(v) =>
@@ -118,9 +132,17 @@ export function InputPanel({
 
       <Panel title="완작 시세" hint="업횟 0회 기준, 아는 것만">
         <p className="mb-2 text-[11px] leading-relaxed text-ink-3">
-          남은 업횟의 값어치는 엔진이 이 곡선과 주문서 값에서 유도합니다. 목표 시세를 비워
-          두면 &ldquo;직접 만들어야 하는&rdquo; 상황으로 계산합니다.
+          업횟이 남은 매물은 거래가 거의 없어, 손절하려면 남은 업횟을 다 태워 완작으로
+          만들어야 팔린다고 봅니다. 태우는 데 드는 주문서값까지 계산에 넣기 때문에, 남은
+          업횟이 이득이 될지 부담이 될지도 이 곡선에서 갈립니다. 회색 숫자는 예측값이니
+          실제와 다르면 채워 주세요.
         </p>
+        {!predictResale && (
+          <p className="mb-2 border-l-2 border-[color:var(--warn)] bg-[#2a2417] px-2 py-1.5 text-[11px] leading-relaxed text-ink-2">
+            전부 비어 있어 <b>되팔기를 끕니다</b> — 손절해도 회수 0으로 계산합니다. 리버스처럼
+            장착하면 교환불가가 되는 아이템이 이 경우입니다.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-1.5">
           {resaleRows.map((a) => (
             <NumberField
@@ -130,7 +152,11 @@ export function InputPanel({
               value={inputs.resale[a] ?? null}
               onChange={(v) => patch({ resale: { ...inputs.resale, [a]: v } })}
               suffix="만"
-              placeholder="—"
+              placeholder={
+                predictResale && a <= predictableUpTo
+                  ? `≈${Math.round(predictResale(a)).toLocaleString('ko-KR')}`
+                  : '—'
+              }
             />
           ))}
         </div>
@@ -210,7 +236,7 @@ export function InputPanel({
               checked={inputs.allowRestart}
               onChange={(e) => patch({ allowRestart: e.target.checked })}
             />
-            손절하고 새 무기로 다시 시작 허용
+            손절하고 새 아이템으로 다시 시작 허용
           </label>
         </div>
       </Panel>

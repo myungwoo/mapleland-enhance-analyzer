@@ -65,11 +65,11 @@ if (distribution) {
   );
 }
 if (outcome) {
-  console.log(`무기 소모      평균 ${outcome.expectedWeapons.toFixed(2)}자루`);
-  console.log(`한 자루당      주문서 ${outcome.expectedScrollsPerWeapon.toFixed(2)}장 소모, 손절 확률 ${(outcome.abandonProbability * 100).toFixed(1)}%`);
+  console.log(`평균 강화      아이템 ${outcome.expectedItems.toFixed(2)}개`);
+  console.log(`개당           주문서 ${outcome.expectedScrollsPerItem.toFixed(2)}장 소모, 손절 확률 ${(outcome.abandonProbability * 100).toFixed(1)}%`);
 }
 
-console.log('\n── 최적 정책 (행: 남은 업횟, 열: 현재 공격력) ──');
+console.log('\n── 최적 전략 (행: 남은 업횟, 열: 현재 공격력) ──');
 const names = problem.scrolls.map((s) => s.label);
 const header = [];
 for (let a = cost.axes.attackMin; a <= problem.target; a++) header.push(`공${a}`.padStart(6));
@@ -130,7 +130,7 @@ for (const base of result.problem.baseOptions) {
   );
 }
 
-console.log('\n── 지금 가진 무기 판정 ──');
+console.log('\n── 현재 상황에서 최적 전략 ──');
 for (const [slots, attack] of [
   [4, 0],
   [3, 5],
@@ -146,7 +146,7 @@ for (const [slots, attack] of [
       : a.action.kind === 'restart'
         ? result.problem.baseOptions[a.action.baseIndex].synthetic
           ? '완제품 구매'
-          : '손절하고 새 무기'
+          : '손절하고 새 아이템'
         : a.action.kind === 'done'
           ? '이미 달성'
           : '방법 없음';

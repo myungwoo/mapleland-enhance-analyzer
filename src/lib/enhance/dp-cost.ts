@@ -86,7 +86,7 @@ export function solveMinCost(input: Problem): CostSolution {
     const empty = sweep(problem, { ...ctx, allowRestart: false }, 0);
     warnings.push(
       `목표 +${problem.target} 은 업횟 ${problem.maxSlots}회로 도달할 수 없습니다. ` +
-        '목표를 낮추거나 업횟이 더 많은 무기를 쓰세요.',
+        '목표를 낮추거나 업횟이 더 많은 아이템을 쓰세요.',
     );
     return finish({
       expectedCost: Number.POSITIVE_INFINITY,
@@ -104,19 +104,18 @@ export function solveMinCost(input: Problem): CostSolution {
   }
 
   if (!problem.allowRestart) {
-    const single = sweep(problem, ctx, 0);
-    const start = startValue(problem, axes, single.cost);
-    if (!Number.isFinite(start.value)) {
-      warnings.push(
-        '손절을 금지하면 확률형 주문서로는 목표 달성을 보장할 수 없어 기대비용이 무한대입니다. ' +
-          '예산 모드로 달성 확률을 보세요.',
-      );
-    }
+    const solved = solveNoRestart(problem, ctx);
+    const start = startNoRestart(problem, axes, solved);
+    warnings.push(
+      '손절 없이 아이템 하나로만 강화합니다. 확률형 주문서로는 목표 달성이 보장되지 않아 ' +
+        '"최소 비용"이 정의되지 않으므로, 달성 확률을 최대로 하는 전략을 보여 줍니다 ' +
+        '(같은 확률이면 더 싼 쪽). 표시되는 지출은 성공 여부와 무관하게 쓰게 될 돈입니다.',
+    );
     return finish({
-      expectedCost: start.value,
+      expectedCost: start.spend,
       bestBaseIndex: start.index,
-      cost: single.cost,
-      policy: single.policy,
+      cost: solved.spend,
+      policy: solved.policy,
     });
   }
 
@@ -173,6 +172,85 @@ export function solveMinCost(input: Problem): CostSolution {
     policy: final.policy,
     salvageMode,
   });
+}
+
+/**
+ * 손절 없이 아이템 하나로만 갈 때의 최적 전략.
+ *
+ * 목표 달성이 보장되지 않으니 "최소 비용"은 정의되지 않는다. 대신 **달성 확률을 최대로**
+ * 하고, 같은 확률이면 더 싼 쪽을 고른다. 돌려주는 spend 는 성공 여부와 무관하게 쓰게 될
+ * 지출의 기댓값이라 언제나 유한하다 (주문서는 많아야 업횟만큼 쓴다).
+ *
+ * 달성 확률이 0 인 칸에서는 멈춘다. 손절도 못 하는 마당에 태울 이유가 없다.
+ */
+function solveNoRestart(
+  problem: Problem,
+  ctx: Context,
+): { chance: Float64Array; spend: Float64Array; policy: Uint8Array } {
+  const { axes } = ctx;
+  const { maxSlots, attackMin, attackMax, span } = axes;
+  const size = (maxSlots + 1) * span;
+  const chance = new Float64Array(size);
+  const spend = new Float64Array(size);
+  const policy = new Uint8Array(size);
+
+  for (let u = 0; u <= maxSlots; u++) {
+    for (let a = attackMin; a <= attackMax; a++) {
+      const i = u * span + (a - attackMin);
+      if (a >= problem.target) {
+        chance[i] = 1;
+        policy[i] = ACTION_DONE;
+        continue;
+      }
+      if (u === 0) {
+        policy[i] = ACTION_INFEASIBLE;
+        continue;
+      }
+
+      const missIdx = (u - 1) * span + (a - attackMin);
+      let bestChance = 0;
+      let bestSpend = 0;
+      let bestAction = ACTION_INFEASIBLE;
+
+      for (let s = 0; s < problem.scrolls.length; s++) {
+        const sc = problem.scrolls[s];
+        const hitIdx = gridIndex(axes, u - 1, a + sc.attackGain);
+        const p = sc.successRate * chance[hitIdx] + (1 - sc.successRate) * chance[missIdx];
+        const c = sc.price + sc.successRate * spend[hitIdx] + (1 - sc.successRate) * spend[missIdx];
+        const better =
+          p > bestChance + 1e-12 || (Math.abs(p - bestChance) <= 1e-12 && bestAction !== ACTION_INFEASIBLE && c < bestSpend);
+        if (bestAction === ACTION_INFEASIBLE ? p > 0 : better) {
+          bestChance = p;
+          bestSpend = c;
+          bestAction = s;
+        }
+      }
+
+      chance[i] = bestChance;
+      spend[i] = bestAction === ACTION_INFEASIBLE ? 0 : bestSpend;
+      policy[i] = bestAction;
+    }
+  }
+  return { chance, spend, policy };
+}
+
+/** 손절이 없을 때의 첫 매물 — 달성 확률이 먼저, 같으면 총 지출이 적은 쪽. */
+function startNoRestart(
+  problem: Problem,
+  axes: Axes,
+  solved: { chance: Float64Array; spend: Float64Array },
+): { chance: number; spend: number; index: number } {
+  let best = { chance: -1, spend: Number.POSITIVE_INFINITY, index: 0 };
+  problem.baseOptions.forEach((base, i) => {
+    const bonus = base.synthetic ? null : problem.startBonus;
+    const at = (delta: number) => gridIndex(axes, problem.maxSlots, base.offset + delta);
+    const chance = mix(bonus, (d) => solved.chance[at(d)]);
+    const spend = base.price + mix(bonus, (d) => solved.spend[at(d)]);
+    if (chance > best.chance + 1e-12 || (Math.abs(chance - best.chance) <= 1e-12 && spend < best.spend)) {
+      best = { chance, spend, index: i };
+    }
+  });
+  return best;
 }
 
 /**

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { solveMaxSuccess } from '../dp-budget';
 import { solveMinCost } from '../dp-cost';
-import { attackDistribution, costDistribution } from '../evaluate';
+import { attackDistribution, costDistribution, successProbabilities } from '../evaluate';
 import { breakevenPrices } from '../breakeven';
+import { gridIndex } from '../types';
 import { baseProblem } from './fixtures';
 
 describe('비용 분포', () => {
@@ -41,7 +42,7 @@ describe('비용 분포', () => {
   });
 });
 
-describe('무기 한 자루의 결과 분포', () => {
+describe('아이템 1개의 결과 분포', () => {
   const problem = baseProblem();
   const solution = solveMinCost(problem);
   const outcome = attackDistribution(problem, solution);
@@ -56,9 +57,9 @@ describe('무기 한 자루의 결과 분포', () => {
     for (const o of outcome.outcomes) expect(o.attack).toBeGreaterThanOrEqual(problem.target);
   });
 
-  it('평균 소모 자루 수가 1 이상이고 성공확률의 역수와 맞는다', () => {
-    expect(outcome.expectedWeapons).toBeGreaterThanOrEqual(1);
-    expect(outcome.expectedWeapons).toBeCloseTo(1 / (1 - outcome.abandonProbability), 6);
+  it('평균 강화 개수가 1 이상이고 성공확률의 역수와 맞는다', () => {
+    expect(outcome.expectedItems).toBeGreaterThanOrEqual(1);
+    expect(outcome.expectedItems).toBeCloseTo(1 / (1 - outcome.abandonProbability), 6);
   });
 });
 
@@ -150,10 +151,38 @@ describe('상태의 이론가', () => {
   const problem = baseProblem();
   const solution = solveMinCost(problem);
 
-  it('업횟이 남을수록 값이 오른다', () => {
-    for (let u = 1; u <= problem.maxSlots; u++) {
-      expect(solution.salvageAt(u, 0)).toBeGreaterThanOrEqual(solution.salvageAt(u - 1, 0));
+  it('업횟 0회의 이론가가 입력한 완작 시세 그대로다', () => {
+    for (const point of problem.salvage!.byAttack) {
+      expect(solution.salvageAt(0, point.attack)).toBeCloseTo(point.price, 6);
     }
+  });
+
+  it('업횟이 남으면 팔 수 없으니 주문서로 태운 값만 남는다', () => {
+    // 완작 시세로 바닥을 받쳐 주지 않는다 — 남은 업횟은 다 태워야 팔린다.
+    for (let u = 1; u <= problem.maxSlots; u++) {
+      for (let a = -1; a <= 6; a++) {
+        const best = Math.max(
+          ...problem.scrolls.map(
+            (s) =>
+              s.successRate * solution.salvageAt(u - 1, a + s.attackGain) +
+              (1 - s.successRate) * solution.salvageAt(u - 1, a) -
+              s.price,
+          ),
+        );
+        expect(solution.salvageAt(u, a)).toBeCloseTo(Math.max(0, best), 6);
+      }
+    }
+  });
+
+  it('주문서가 값어치보다 비싸면 남은 업횟이 오히려 부채가 된다', () => {
+    // 팔려면 태워야 하는데 태우는 값이 더 비싼 구간이 실제로 존재한다.
+    const liability = [];
+    for (let u = 1; u <= problem.maxSlots; u++) {
+      for (let a = -1; a <= 6; a++) {
+        if (solution.salvageAt(u, a) < solution.salvageAt(0, a) - 1e-6) liability.push([u, a]);
+      }
+    }
+    expect(liability.length).toBeGreaterThan(0);
   });
 
   it('공격력이 높을수록 값이 오른다', () => {
@@ -175,5 +204,47 @@ describe('상태의 이론가', () => {
         }
       }
     }
+  });
+});
+
+describe('손절을 금지했을 때', () => {
+  // 목표 공7 은 상옵 + 100% 7장이면 확정이라 확률이 1 이 된다. 확정으로는 못 닿는
+  // 목표라야 "보장은 안 되지만 최선을 다한다"는 동작이 드러난다.
+  const problem = baseProblem({ target: 10, allowRestart: false });
+  const solution = solveMinCost(problem);
+  const chance = successProbabilities(problem, solution);
+  const start = problem.baseOptions[solution.bestBaseIndex];
+  const startChance = chance[gridIndex(solution.axes, problem.maxSlots, start.offset)];
+
+  it('막다른 길이 아니라 쓸 수 있는 전략을 준다', () => {
+    expect(solution.feasible).toBe(true);
+    expect(Number.isFinite(solution.expectedCost)).toBe(true);
+    expect(solution.expectedCost).toBeGreaterThan(0);
+    expect(startChance).toBeGreaterThan(0);
+    expect(startChance).toBeLessThan(1); // 확률형 주문서라 보장은 못 한다
+  });
+
+  it('지출이 매물값 + 업횟만큼의 주문서값을 넘지 않는다', () => {
+    // 손절이 없으면 아이템 하나에 업횟만큼만 쓴다. 위로 유한하다.
+    const maxScroll = Math.max(...problem.scrolls.map((s) => s.price));
+    const maxBase = Math.max(...problem.baseOptions.map((b) => b.price));
+    expect(solution.expectedCost).toBeLessThanOrEqual(maxBase + problem.maxSlots * maxScroll);
+  });
+
+  it('손절을 허용할 때보다 달성 확률이 낮을 수 없다 — 같은 아이템 하나 기준', () => {
+    const withRestart = solveMinCost(baseProblem({ target: 10 }));
+    const oneItem = successProbabilities(baseProblem({ target: 10 }), withRestart);
+    const base = withRestart.axes;
+    const theirs = oneItem[gridIndex(base, problem.maxSlots, start.offset)];
+    // 비용을 무시하고 확률만 좇는 쪽이 확률로는 앞선다.
+    expect(startChance).toBeGreaterThanOrEqual(theirs - 1e-9);
+  });
+
+  it('예산 모드도 손절 금지를 지킨다', () => {
+    // 예산 DP 가 allowRestart 를 무시하고 손절을 허용하던 버그가 있었다.
+    const noRestart = solveMaxSuccess(problem, { budget: 500_000_000, ticks: 800 });
+    const free = solveMaxSuccess(baseProblem({ target: 10 }), { budget: 500_000_000, ticks: 800 });
+    expect(noRestart.successProbability).toBeLessThan(free.successProbability);
+    expect(noRestart.successProbability).toBeCloseTo(startChance, 2);
   });
 });

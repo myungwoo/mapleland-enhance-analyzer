@@ -11,9 +11,15 @@ export interface EnhanceSalvage {
 /**
  * 상태의 **이론가** W(u, a) — 그 물건을 손에 쥐고 최적으로 굴렸을 때의 가치.
  *
- *   W(u, a) = max( V(a),  max_s [ E W(u−1, ·) − c_s ] )
+ *   W(0, a) = V(a)                          업횟을 다 쓴 것만 팔린다
+ *   W(u, a) = max_s [ E W(u−1, ·) − c_s ]   업횟이 남아 있으면 팔 수 없으니 계속 발라야 한다
  *
  * 여기서 V(a) 는 사용자가 입력한 "업횟 0회 기준 공격력별 시세"다.
+ *
+ * 업횟이 남은 매물은 실제로 거래가 거의 없다(10% 초벌처럼 그 자체로 값이 붙는 경우는
+ * 예외). 그래서 중간에 손절하려면 남은 업횟을 다 태워 완작 상태로 만들어야 팔린다.
+ * 그 결과 **남은 업횟이 부채가 될 수도 있다** — 주문서값이 올려 주는 값어치보다 비싸면
+ * W(u,a) 가 V(a) 보다 낮게 나온다. 의도한 동작이다.
  *
  * 남은 업횟의 가치를 사용자에게 묻지 않고 이렇게 유도하는 게 핵심이다. "1회당 N메소"
  * 같은 상수를 입력받으면 시세 곡선과 거의 반드시 모순이 난다 — 예컨대 공7 시세 600만,
@@ -38,16 +44,19 @@ export function makeEnhanceSalvage(problem: Problem): EnhanceSalvage {
   for (let u = 0; u <= maxSlots; u++) {
     for (let a = attackMin; a <= attackMax; a++) {
       const i = u * span + (a - attackMin);
-      let best = priceAt(a);
-      if (u > 0) {
-        for (const s of problem.scrolls) {
-          const hit = table[gridIndex(axes, u - 1, a + s.attackGain)];
-          const miss = table[(u - 1) * span + (a - attackMin)];
-          const v = s.successRate * hit + (1 - s.successRate) * miss - s.price;
-          if (v > best) best = v;
-        }
+      if (u === 0) {
+        table[i] = priceAt(a);
+        continue;
       }
-      table[i] = best;
+      // 업횟이 남아 있으면 못 판다. 가장 나은 주문서로 계속 태우는 수밖에 없다.
+      let best = Number.NEGATIVE_INFINITY;
+      for (const s of problem.scrolls) {
+        const hit = table[gridIndex(axes, u - 1, a + s.attackGain)];
+        const miss = table[(u - 1) * span + (a - attackMin)];
+        const v = s.successRate * hit + (1 - s.successRate) * miss - s.price;
+        if (v > best) best = v;
+      }
+      table[i] = Number.isFinite(best) ? Math.max(0, best) : 0;
     }
   }
 

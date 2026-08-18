@@ -1,7 +1,7 @@
 'use client';
 
 import { useDeferredValue, useMemo, useState } from 'react';
-import { analyze, decodeAction, type Analysis } from '@/lib/enhance';
+import { analyze, decodeAction, startSuccess, type Analysis } from '@/lib/enhance';
 import { formatMeso, formatPercent, MAN } from '@/lib/format';
 import { BarList, ProbabilityCurve } from './charts';
 import { InputPanel } from './InputPanel';
@@ -99,6 +99,8 @@ function Results({
         : '바로 되파는 게 낫습니다';
 
   const advisorState = selected ?? { slots: problem.maxSlots, attack: start.offset };
+  const noRestart = !problem.allowRestart;
+  const startChance = startSuccess(problem, cost);
 
   return (
     <>
@@ -114,12 +116,28 @@ function Results({
             <b className="text-gold">{firstMove}</b>.
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Stat
-              label="기대 총비용"
-              value={formatMeso(cost.expectedCost)}
-              sub="되팔이 회수 반영"
-              tone="gold"
-            />
+            {noRestart ? (
+              <>
+                <Stat
+                  label="목표 달성 확률"
+                  value={formatPercent(startChance)}
+                  sub="아이템 1개로"
+                  tone="gold"
+                />
+                <Stat
+                  label="예상 지출"
+                  value={formatMeso(cost.expectedCost)}
+                  sub="성공 여부와 무관하게 쓰는 돈"
+                />
+              </>
+            ) : (
+              <Stat
+                label="기대 총비용"
+                value={formatMeso(cost.expectedCost)}
+                sub="되팔이 회수 반영"
+                tone="gold"
+              />
+            )}
             {distribution && (
               <>
                 <Stat
@@ -137,14 +155,33 @@ function Results({
             )}
             {outcome && (
               <Stat
-                label="평균 소모 무기"
-                value={`${outcome.expectedWeapons.toFixed(1)}자루`}
-                sub={`자루당 주문서 ${outcome.expectedScrollsPerWeapon.toFixed(1)}장`}
+                label={noRestart ? '평균 소모 주문서' : '평균 강화하는 아이템 개수'}
+                value={
+                  noRestart
+                    ? `${outcome.expectedScrollsPerItem.toFixed(1)}장`
+                    : `${outcome.expectedItems.toFixed(1)}개`
+                }
+                sub={
+                  noRestart
+                    ? '아이템은 1개만 씁니다'
+                    : `개당 주문서 ${outcome.expectedScrollsPerItem.toFixed(1)}장`
+                }
               />
             )}
           </div>
         </Panel>
       )}
+
+      <StateAdvisor
+        noRestart={noRestart}
+        analysis={analysis}
+        state={advisorState}
+        onChange={onSelect}
+        pendingLevels={pendingLevels}
+        maxPendingLevels={reverse.enabled ? reverse.levels : 0}
+        pendingLevelBonus={reverseAttackBonus(reverse, pendingLevels)}
+        onPendingLevelsChange={onPendingLevelsChange}
+      />
 
       {reverse.enabled && <ReverseOutcome reverse={reverse} />}
 
@@ -191,17 +228,31 @@ function Results({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="전략 비교" hint="같은 조건에서의 기대 총비용">
-          <BarList
-            rows={[...strategies]
-              .sort((a, b) => a.expectedCost - b.expectedCost)
-              .map((s) => ({ label: s.label, value: s.expectedCost }))}
-            highlight="최적 전략"
-          />
+        <Panel
+          title="전략 비교"
+          hint={noRestart ? '같은 조건에서의 달성 확률' : '같은 조건에서의 기대 총비용'}
+        >
+          {noRestart ? (
+            <BarList
+              rows={[...strategies]
+                .sort((a, b) => b.successProbability - a.successProbability)
+                .map((s) => ({ label: s.label, value: s.successProbability }))}
+              format={(v) => formatPercent(v)}
+              color="var(--series-60)"
+              highlight="최적 전략"
+            />
+          ) : (
+            <BarList
+              rows={[...strategies]
+                .sort((a, b) => a.expectedCost - b.expectedCost)
+                .map((s) => ({ label: s.label, value: s.expectedCost }))}
+              highlight="최적 전략"
+            />
+          )}
         </Panel>
 
         {outcome && outcome.outcomes.length > 0 && (
-          <Panel title="달성 시점의 공격력" hint="무기 한 자루 기준">
+          <Panel title="달성 시점의 공격력" hint="아이템 1개 기준">
             <BarList
               rows={outcome.outcomes.map((o) => ({
                 label: `공+${o.attack}`,
@@ -211,7 +262,7 @@ function Results({
               color="var(--series-60)"
             />
             <p className="mt-2 text-[11px] text-ink-3">
-              이 자루를 손절하게 될 확률 {formatPercent(outcome.abandonProbability)}
+              이 아이템을 손절하게 될 확률 {formatPercent(outcome.abandonProbability)}
             </p>
           </Panel>
         )}
@@ -287,15 +338,6 @@ function Results({
         </Panel>
       </div>
 
-      <StateAdvisor
-        analysis={analysis}
-        state={advisorState}
-        onChange={onSelect}
-        pendingLevels={pendingLevels}
-        maxPendingLevels={reverse.enabled ? reverse.levels : 0}
-        pendingLevelBonus={reverseAttackBonus(reverse, pendingLevels)}
-        onPendingLevelsChange={onPendingLevelsChange}
-      />
     </>
   );
 }
