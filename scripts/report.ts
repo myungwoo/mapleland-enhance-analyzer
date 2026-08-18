@@ -120,6 +120,27 @@ if (budget) {
   }
 }
 
+if (result.budgetStartBands.length) {
+  // 가진 돈에 따라 첫 매물이 갈리는 지점. 한 줄이면 이 문제에서는 안 갈린다는 뜻이다.
+  console.log('\n── 예산 구간별 사야 할 매물 ──');
+  for (const band of result.budgetStartBands) {
+    const label = result.problem.baseOptions[band.baseIndex].label ?? '완성품';
+    console.log(
+      `  ${money(band.from).padStart(8)} ~ ${money(band.to).padStart(8)}  →  ${label.padEnd(8)}` +
+        `달성확률 ${(band.chanceFrom * 100).toFixed(1).padStart(5)}% → ${(band.chanceTo * 100).toFixed(1).padStart(5)}%` +
+        `, 차선 대비 ${Number.isFinite(band.margin) ? `${(band.margin * 100).toFixed(1)}%p` : '유일'}`,
+    );
+  }
+  if (result.budgetStart) {
+    const plan = result.budgetStart;
+    console.log(
+      `  → 입력한 예산 기준: ${
+        plan.baseIndex < 0 ? '살 수 있는 게 없음' : (result.problem.baseOptions[plan.baseIndex].label ?? '완성품')
+      } (달성확률 ${(plan.chance * 100).toFixed(1)}%)`,
+    );
+  }
+}
+
 console.log('\n── 매물 이론가 (이 값보다 싸면 사도 되는 가격) ──');
 for (const base of result.problem.baseOptions) {
   if (base.synthetic) continue;

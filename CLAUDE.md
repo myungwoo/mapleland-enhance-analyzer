@@ -60,7 +60,19 @@ npm run diag       # 입력 시세의 정합성(매물 이론가) 확인
 조합이다(dark, surface `#1a1d21`). 색맹 분리가 6–8 경고대라 **칸마다 문자 라벨이 필수**이고,
 빨강+주황 조합은 정상 시력 기준으로도 하드 실패라 쓸 수 없다.
 
-### 5. 서버 코드를 추가하지 않는다
+### 5. 예산 곡선은 사용자 예산보다 넓게 푼다
+
+`analyze` 는 비용 곡선과 나란히 그리려고 예산 DP 를 `max(사용자 예산, 자동 범위)` 로
+푼다. 그래서 예산에 딸린 값을 끝점(`ticks`)에서 읽으면 **있지도 않은 돈을 가진 사람의
+답**이 나온다. 첫 매물·첫 수·달성 확률은 반드시 사용자의 예산 지점에서 읽을 것
+(`budget.startAt(userBudget)`, `curve[floor(userBudget/tick)]`).
+
+예산 구간별 첫 매물(`startBase`/`startBands`)은 틱마다의 argmax 가 아니다. 매물별 확률이
+바짝 붙어 있어 그대로 쓰면 답이 널뛰므로, 쥐고 있던 매물이 `SWITCH_MARGIN`(1%p) 넘게
+뒤처질 때만 갈아탄다. 이 값을 건드리면 표가 통째로 달라지니 `npm run report` 로 구간이
+몇 줄로 접히는지 눈으로 볼 것.
+
+### 6. 서버 코드를 추가하지 않는다
 
 GitHub Pages 정적 호스팅이다. 라우트 핸들러·서버 액션·미들웨어를 넣으면 `next build` 의
 `output: 'export'` 에서 깨진다. `basePath` 는 CI 가 `NEXT_PUBLIC_BASE_PATH` 로 주입한다.
@@ -70,7 +82,7 @@ GitHub Pages 정적 호스팅이다. 라우트 핸들러·서버 액션·미들�
 | 경로 | 역할 |
 | --- | --- |
 | `src/lib/enhance/dp-cost.ts` | 모드 A — 최소 기대비용. 재시작 고정점은 `R ← f(R)` 단조 반복 + Aitken 가속 (정책 반복은 부적절한 정책에 빠져 발산한다) |
-| `src/lib/enhance/dp-budget.ts` | 모드 C — 예산 제약 하 달성 확률 |
+| `src/lib/enhance/dp-budget.ts` | 모드 C — 예산 제약 하 달성 확률. 예산 구간별 첫 매물(`startBands`)도 여기서 나온다 |
 | `src/lib/enhance/evaluate.ts` | 정책 고정 후 비용 CDF·분위수, 결과 분포 |
 | `src/lib/enhance/salvage.ts` | 시세 보간과 상태 이론가 `W` |
 | `src/components/` | UI. `PolicyHeatmap` 이 시그니처 화면 |

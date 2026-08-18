@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { solveMaxSuccess } from '../dp-budget';
+import { solveMaxSuccess, startBands } from '../dp-budget';
 import { solveMinCost } from '../dp-cost';
 import { attackDistribution, costDistribution, successProbabilities } from '../evaluate';
 import { breakevenPrices } from '../breakeven';
@@ -405,5 +405,141 @@ describe('남은 예산에 따른 최적 수', () => {
 
   it('돈이 없으면 아무것도 못 한다', () => {
     expect(budget.chanceAt(5, 0, 0)).toBe(0);
+  });
+});
+
+describe('예산에 따라 사야 할 매물이 달라진다', () => {
+  /**
+   * 상옵 매물이 촘촘히 있고 되팔기가 안 되는 문제 (리버스처럼 장착하면 교환불가).
+   * 실패가 전손이라 "지금 가진 돈으로 몇 번 도전할 수 있나"가 매물 선택을 가른다 —
+   * 예산이 적으면 싸게 사서 그 돈으로 주문서를 사야 하고, 넉넉해지면 시작 공격력이
+   * 높은 매물로 올라간다.
+   */
+  const ladder = baseProblem({
+    baseOptions: [
+      { offset: -1, price: 2_000_000, label: '공1하' },
+      { offset: 0, price: 4_000_000, label: '정옵' },
+      { offset: 1, price: 9_000_000, label: '공1상' },
+      { offset: 2, price: 16_000_000, label: '공2상' },
+      { offset: 3, price: 26_000_000, label: '공3상' },
+    ],
+    target: 12,
+    salvage: null,
+  });
+  const RANGE = 400_000_000;
+  const solved = solveMaxSuccess(ladder, { budget: RANGE });
+  const bands = startBands(solved);
+  const prepared = prepareProblem(ladder);
+
+  /** 예산 amount 로 매물 v 를 사서 시작할 때의 달성 확률. 첫 매물 선택과 무관하게 직접 잰다. */
+  const chanceOfBuying = (amount: number, v: number) => {
+    const base = prepared.baseOptions[v];
+    return amount < base.price
+      ? 0
+      : solved.chanceAt(ladder.maxSlots, base.offset, amount - base.price);
+  };
+
+  it('가진 돈에 따라 답이 실제로 갈린다', () => {
+    // 이게 하나뿐이면 표를 만들 이유도, 결론에 따로 적을 이유도 없다.
+    expect(bands.length).toBeGreaterThan(1);
+    expect(new Set(bands.map((b) => b.baseIndex)).size).toBeGreaterThan(1);
+  });
+
+  it('예산이 늘면서 한동안은 더 좋은 매물로 올라간다', () => {
+    // 단조 사다리는 아니다. 되팔이로 재도전이 되는 큰 예산대에서는 싼 매물로 돌아가는
+    // 게 맞을 때가 있다. 다만 빠듯한 쪽에서는 돈이 늘수록 시작 공격력을 사게 된다.
+    const offsets = bands.map((b) => prepared.baseOptions[b.baseIndex].offset);
+    expect(offsets[0]).toBe(-1);
+    expect(Math.max(...offsets.slice(0, 4))).toBeGreaterThan(offsets[0]);
+  });
+
+  it('살 수 없는 매물을 권하지 않는다', () => {
+    // 구매비는 예산 격자에 확률적으로 반올림되므로 한 틱까지는 걸칠 수 있다.
+    for (const band of bands) {
+      expect(prepared.baseOptions[band.baseIndex].price).toBeLessThan(band.from + solved.tick * 1.5);
+    }
+  });
+
+  it('구간이 예산 축을 순서대로 덮는다', () => {
+    for (let i = 0; i < bands.length; i++) {
+      expect(bands[i].to).toBeGreaterThanOrEqual(bands[i].from);
+      expect(bands[i].chanceTo).toBeGreaterThanOrEqual(bands[i].chanceFrom);
+      if (i > 0) expect(bands[i].from).toBeGreaterThan(bands[i - 1].to);
+    }
+    expect(bands[bands.length - 1].to).toBeCloseTo(RANGE, -3);
+  });
+
+  it('구간이 권하는 매물은 그 구간 어디서나 최선에 1%p 안쪽으로 붙는다', () => {
+    // 갈아탈 값어치가 없으면 사던 걸 계속 사게 두는 대신, 그 대가를 이 폭으로 묶는다.
+    for (const band of bands) {
+      for (const amount of [band.from, (band.from + band.to) / 2, band.to]) {
+        const mine = chanceOfBuying(amount, band.baseIndex);
+        const best = Math.max(...prepared.baseOptions.map((_, v) => chanceOfBuying(amount, v)));
+        expect(mine).toBeGreaterThan(best - 0.012);
+      }
+    }
+  });
+
+  it('구간 경계에서는 답이 실제로 바뀐다', () => {
+    // 경계 위에서는 새 매물이 직전 매물보다 나아야 한다. 아니면 나눌 이유가 없다.
+    for (let i = 1; i < bands.length; i++) {
+      const at = bands[i].from;
+      expect(chanceOfBuying(at, bands[i].baseIndex)).toBeGreaterThan(
+        chanceOfBuying(at, bands[i - 1].baseIndex),
+      );
+    }
+  });
+
+  it('첫 매물을 예산 지점에서 읽는다 — 곡선 그리려고 넓게 푼 끝점이 아니라', () => {
+    // 곡선은 사용자의 예산보다 넓은 구간까지 푼다. 끝점에서 읽으면 있지도 않은 돈을
+    // 가진 사람의 답이 나온다.
+    const tight = 30_000_000;
+    const analysis = analyze(ladder, { budget: tight });
+    expect(analysis.budget!.tick * analysis.budget!.ticks).toBeGreaterThan(tight * 1.5);
+
+    const direct = solveMaxSuccess(ladder, { budget: tight }).startAt(tight);
+    expect(analysis.budgetStart!.baseIndex).toBe(direct.baseIndex);
+    expect(analysis.budgetStart!.chance).toBeCloseTo(direct.chance, 2);
+  });
+
+  it('예산이 빠듯하면 최소비용 기준과 다른 매물을 산다', () => {
+    const tight = 30_000_000;
+    const analysis = analyze(ladder, { budget: tight });
+    const byBudget = analysis.budgetStart!.baseIndex;
+    expect(byBudget).not.toBe(analysis.cost.bestBaseIndex);
+
+    // 이름만 다른 게 아니라 그 예산에서 실제로 유리해야 한다.
+    expect(chanceOfBuying(tight, byBudget)).toBeGreaterThan(
+      chanceOfBuying(tight, analysis.cost.bestBaseIndex),
+    );
+  });
+
+  it('돈이 모자라면 사라고 하지 않는다', () => {
+    expect(analyze(ladder, { budget: bands[0].from / 2 }).budgetStart!.baseIndex).toBe(-1);
+    expect(solved.startAt(0).baseIndex).toBe(-1);
+    expect(solved.startAt(0).chance).toBe(0);
+  });
+
+  it('한 방에 확정지을 돈이 되는 순간 답이 바뀐다 — 닫힌 형태와 대조', () => {
+    // 기준 문제(목표 +7, 업횟 7)는 손으로 풀린다.
+    //   정옵(400만) + 100% 7장(7×20만) = 540만 이면 확률 없이 +7 이 확정이다.
+    //   그 아래로는 확률에 걸어야 하고, 가장 싼 길은 공1하(200만) + 60% 한 장(100만)
+    //   + 100% 여섯 장(120만) = 420만 에 60% 다 (−1 +2 +6 = +7).
+    // 표의 경계와 확률이 이 계산과 정확히 맞아야 한다.
+    const analysis = analyze(baseProblem(), { budget: 40_000_000 });
+    const [risky, sure] = analysis.budgetStartBands;
+    expect(analysis.budgetStartBands).toHaveLength(2);
+
+    expect(analysis.problem.baseOptions[risky.baseIndex].offset).toBe(-1);
+    expect(risky.from).toBeCloseTo(2_000_000 + 1_000_000 + 6 * 200_000, -5);
+    expect(risky.chanceFrom).toBeCloseTo(0.6, 6);
+
+    expect(analysis.problem.baseOptions[sure.baseIndex].offset).toBe(0);
+    expect(sure.from).toBeCloseTo(4_000_000 + 7 * 200_000, -5);
+    expect(sure.chanceFrom).toBeCloseTo(1, 6);
+
+    // 최소비용 기준은 여전히 공1하다 — 확정을 사려면 더 비싼 매물이 필요하다는 게
+    // 곧 "예산이 정해지면 전략이 달라진다"는 말이다.
+    expect(analysis.problem.baseOptions[analysis.cost.bestBaseIndex].offset).toBe(-1);
   });
 });
