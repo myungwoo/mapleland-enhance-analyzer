@@ -90,7 +90,7 @@ function Results({
   pendingLevels: number;
   onPendingLevelsChange: (levels: number) => void;
 }) {
-  const { problem, cost, distribution, outcome, budget, breakeven, bases, strategies, warnings } =
+  const { problem, cost, distribution, outcome, budget, budgetIsAuto, breakeven, bases, strategies, warnings } =
     analysis;
 
   const start = problem.baseOptions[cost.bestBaseIndex];
@@ -249,21 +249,37 @@ function Results({
           </Panel>
         )}
 
-        {budget && budgetMeso && (
-          <Panel title="예산별 달성 확률" hint={`현재 예산 ${formatMeso(budgetMeso)}`}>
+        {budget && (
+          <Panel
+            title="예산별 달성 확률"
+            hint={
+              budgetIsAuto
+                ? '예산 미설정 — 참고용 범위'
+                : `현재 예산 ${formatMeso(budgetMeso ?? 0)}`
+            }
+          >
             <ProbabilityCurve
               values={budget.curve}
               step={budget.tick}
               xLabel="예산"
               color="var(--series-60)"
-              markers={[{ x: budgetMeso, label: '내 예산' }]}
+              markers={
+                budgetIsAuto || !budgetMeso ? [] : [{ x: budgetMeso, label: '내 예산' }]
+              }
             />
-            <p className="mt-2 text-[12px] text-ink-2">
-              지금 예산으로 목표 달성 확률{' '}
-              <b className="tabular text-[color:var(--series-60)]">
-                {formatPercent(budget.successProbability)}
-              </b>
-            </p>
+            {budgetIsAuto ? (
+              <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
+                예산을 넣으면 그 지점을 표시하고 달성 확률을 짚어 줍니다. 지금은 얼마쯤
+                준비하면 몇 %인지 곡선으로만 보여 줍니다.
+              </p>
+            ) : (
+              <p className="mt-2 text-[12px] text-ink-2">
+                지금 예산으로 목표 달성 확률{' '}
+                <b className="tabular text-[color:var(--series-60)]">
+                  {formatPercent(budget.successProbability)}
+                </b>
+              </p>
+            )}
           </Panel>
         )}
       </div>

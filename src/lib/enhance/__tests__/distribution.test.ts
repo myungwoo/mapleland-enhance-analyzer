@@ -268,7 +268,9 @@ describe('매물별 살 만한 상한', () => {
     for (const b of values) {
       if (b.offset === prepared.baseOptions[solution.bestBaseIndex].offset) continue;
       const ahead = solution.cost[gridIndex(solution.axes, problem.maxSlots, b.offset)];
-      expect(b.worthPayingUpTo).toBeCloseTo(solution.expectedCost - ahead, 3);
+      const expected = solution.expectedCost - ahead;
+      // 메소 단위라 절대 오차로 재면 이분탐색 정밀도(상대 1e-9)에 걸린다.
+      expect(Math.abs(b.worthPayingUpTo - expected) / expected).toBeLessThan(1e-6);
     }
   });
 

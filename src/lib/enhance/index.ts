@@ -58,6 +58,8 @@ export interface Analysis {
   distribution: CostDistribution | null;
   outcome: AttackDistribution | null;
   budget: BudgetSolution | null;
+  /** 예산을 안 넣어서 참고용 범위로 그린 곡선인지 */
+  budgetIsAuto: boolean;
   breakeven: BreakevenResult[] | null;
   /** 매물별 "얼마까지 주고 살 만한가" */
   bases: BaseValue[];
@@ -79,6 +81,7 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
       cost,
       successChance,
       bases: [],
+      budgetIsAuto: false,
       distribution: null,
       outcome: null,
       budget: null,
@@ -95,10 +98,17 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
     : null;
   const outcome = attackDistribution(problem, cost);
 
+  // 예산을 안 넣었어도 곡선 자체는 쓸모가 있다 — "얼마쯤 있으면 몇 %"를 보여 준다.
+  // 넉넉한 기본 범위를 잡아 그리되, 그 사실을 밖에서 알 수 있게 표시한다.
+  const budgetIsAuto = !(options.budget !== undefined && options.budget > 0);
+  const budgetAmount = budgetIsAuto
+    ? autoBudgetRange(cost, distribution)
+    : (options.budget as number);
+
   let budget: BudgetSolution | null = null;
-  if (options.budget !== undefined && options.budget > 0) {
-    budget = solveMaxSuccess(problem, { budget: options.budget, ticks: options.budgetTicks });
-    warnings.push(...budget.warnings);
+  if (Number.isFinite(budgetAmount) && budgetAmount > 0) {
+    budget = solveMaxSuccess(problem, { budget: budgetAmount, ticks: options.budgetTicks });
+    if (!budgetIsAuto) warnings.push(...budget.warnings);
   }
 
   if (distribution && distribution.coverage < 0.99) {
@@ -114,6 +124,7 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
     distribution,
     outcome,
     budget,
+    budgetIsAuto,
     breakeven:
       options.includeBreakeven && problem.allowRestart
         ? breakevenPrices(alignSalvage(problem, cost))
@@ -122,6 +133,20 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
     strategies: compareStrategies(problem, cost),
     warnings,
   };
+}
+
+/**
+ * 예산을 안 넣었을 때 곡선을 그릴 범위.
+ *
+ * 상위 1% 지출까지 담으면 곡선이 위쪽에서 평평해지는 모습까지 보인다. 그 값이 없으면
+ * (손절 금지처럼 분포를 안 내는 경우) 기대 지출의 몇 배로 잡는다.
+ */
+function autoBudgetRange(cost: CostSolution, distribution: CostDistribution | null): number {
+  if (!Number.isFinite(cost.expectedCost) || cost.expectedCost <= 0) return 0;
+  const tail = distribution?.quantiles.p99;
+  return Number.isFinite(tail) && (tail as number) > 0
+    ? (tail as number) * 1.1
+    : cost.expectedCost * 4;
 }
 
 /**

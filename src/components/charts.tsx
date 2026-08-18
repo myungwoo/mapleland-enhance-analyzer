@@ -44,8 +44,14 @@ export function ProbabilityCurve({
     points.push({ spend: idx * step, p: values[idx] });
   }
 
-  // 마커가 축 밖으로 잘리지 않도록 도메인에 포함시킨다.
-  const maxSpend = Math.max(points[points.length - 1]?.spend || 1, ...markers.map((m) => m.x));
+  // 마커가 축 밖으로 잘리지 않도록 도메인에 포함시키되, 유한한 것만 센다.
+  // 무한대가 하나라도 섞이면 축이 통째로 무너져 SVG 좌표가 NaN 이 된다.
+  const usable = markers.filter((m) => Number.isFinite(m.x));
+  const spent = points[points.length - 1]?.spend;
+  const maxSpend = Math.max(
+    Number.isFinite(spent) && (spent as number) > 0 ? (spent as number) : 1,
+    ...usable.map((m) => m.x),
+  );
   const sx = (spend: number) =>
     PAD.left + (spend / maxSpend) * (W - PAD.left - PAD.right);
   const sy = (p: number) => PAD.top + (1 - p) * (H - PAD.top - PAD.bottom);
@@ -100,7 +106,7 @@ export function ProbabilityCurve({
 
         <path d={path} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
 
-        {markers.map((m, i) => {
+        {usable.map((m, i) => {
           // 라벨끼리 겹치지 않게 층을 나누고, 오른쪽 끝에서는 왼쪽으로 붙인다.
           const x = sx(m.x);
           const nearRight = x > W - PAD.right - 70;
