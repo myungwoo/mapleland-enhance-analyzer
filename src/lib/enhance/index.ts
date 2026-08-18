@@ -4,6 +4,7 @@ import { solveMinCost, type CostSolution } from './dp-cost';
 import {
   attackDistribution,
   costDistribution,
+  successProbabilities,
   type AttackDistribution,
   type CostDistribution,
 } from './evaluate';
@@ -17,6 +18,7 @@ export { solveMaxSuccess, type BudgetSolution, type BudgetOptions } from './dp-b
 export {
   attackDistribution,
   costDistribution,
+  successProbabilities,
   type AttackDistribution,
   type CostDistribution,
 } from './evaluate';
@@ -49,6 +51,8 @@ export interface Analysis {
   /** 합성 매물("완성품 직접 구매")까지 포함된 문제. 인덱스 해석은 이걸 기준으로. */
   problem: Problem;
   cost: CostSolution;
+  /** S[u][a] — 그 상태에서 이 무기 한 자루로 목표를 만들 확률 (cost 와 같은 인덱싱) */
+  successChance: Float64Array;
   distribution: CostDistribution | null;
   outcome: AttackDistribution | null;
   budget: BudgetSolution | null;
@@ -63,10 +67,13 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
   const cost = solveMinCost(problem);
   const warnings = [...cost.warnings];
 
+  const successChance = successProbabilities(problem, cost);
+
   if (!cost.feasible || cost.arbitrage) {
     return {
       problem,
       cost,
+      successChance,
       distribution: null,
       outcome: null,
       budget: null,
@@ -94,6 +101,7 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
   return {
     problem,
     cost,
+    successChance,
     distribution,
     outcome,
     budget,
@@ -139,6 +147,12 @@ export interface Advice {
   action: Action;
   /** 아직 남은 레벨업이 있어 먼저 굴려야 하는 상태인지 (리버스 무기) */
   levelUpFirst: boolean;
+  /**
+   * 이 무기 한 자루로 목표를 만들 확률. 손절하면 실패로 친다.
+   * "언젠가 목표를 갖게 될 확률"이 아니다 — 그건 새 무기를 계속 사면 되니 항상 100% 이고,
+   * 그 대가가 기대비용이다.
+   */
+  successProbability: number;
   /** 이 상태에서 목표까지 남은 기대비용 */
   remainingCost: number;
   /** 지금 팔면 손에 쥐는 금액 */
@@ -156,6 +170,7 @@ export interface Advice {
 export function advise(
   problem: Problem,
   solution: CostSolution,
+  successChance: Float64Array,
   slotsLeft: number,
   attack: number,
   /**
@@ -175,6 +190,7 @@ export function advise(
   return {
     action,
     levelUpFirst: pending !== null,
+    successProbability: mix(pending, (d) => successChance[at(d)]),
     remainingCost,
     salvageValue,
     restartCost,

@@ -119,7 +119,7 @@ W(u, a) = max( V(a),  max_s [ E W(u−1, ·) − c_s ] )
 | `InputPanel.tsx` | 시세·목표 입력 |
 | `PolicyHeatmap.tsx` | (남은 업횟 × 공격력) 격자에 최적 행동을 칠한 시그니처 화면 |
 | `charts.tsx` | 누적 확률 곡선, 가로 막대 |
-| `StateAdvisor.tsx` | 지금 들고 있는 무기의 "계속 vs 손절" 판정 |
+| `StateAdvisor.tsx` | 지금 들고 있는 무기의 "계속 vs 손절" 판정과 이 자루로 목표를 만들 확률 |
 
 계열색 4종(주문서 3 + 손절)은 dataviz 검증기의 all-pairs 기준을 통과한 조합이다
 (dark, surface `#1a1d21`). 색맹 분리 ΔE 7.2 로 경고대에 있어 **보조 인코딩이 필수**이며,

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { decodeAction, type Analysis } from '@/lib/enhance';
-import { formatMeso } from '@/lib/format';
+import { formatMeso, formatPercent } from '@/lib/format';
 import { Panel } from './ui';
 
 /** 주문서 id → 계열색. 색은 보조 수단이고, 칸마다 문자 라벨이 정체를 나른다. */
@@ -20,6 +20,7 @@ interface Cell {
   reachable: boolean;
   remaining: number;
   salvage: number;
+  success: number;
 }
 
 export function PolicyHeatmap({
@@ -32,7 +33,7 @@ export function PolicyHeatmap({
   onSelect: (state: { slots: number; attack: number }) => void;
 }) {
   const [hover, setHover] = useState<Cell | null>(null);
-  const { problem, cost } = analysis;
+  const { problem, cost, successChance } = analysis;
   const { axes } = cost;
 
   const maxGain = Math.max(...problem.scrolls.map((s) => s.attackGain));
@@ -81,6 +82,7 @@ export function PolicyHeatmap({
       reachable,
       remaining: cost.cost[i],
       salvage: cost.salvageAt(slots, attack),
+      success: successChance[i],
     };
   };
 
@@ -159,6 +161,9 @@ export function PolicyHeatmap({
                   style={{ background: hover.color }}
                 />
                 <b className="text-ink-1">{hover.label}</b>
+              </span>
+              <span className="tabular text-ink-3">
+                이 무기로 달성 {formatPercent(hover.success)}
               </span>
               <span className="tabular text-ink-3">
                 남은 기대비용 {formatMeso(hover.remaining)}

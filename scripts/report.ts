@@ -47,7 +47,7 @@ const money = (v: number) =>
       : `${Math.round(v / 만).toLocaleString('ko-KR')}만`;
 
 const result = analyze(problem, { budget: 5000 * 만, includeBreakeven: true });
-const { cost, distribution, outcome, budget, breakeven, strategies } = result;
+const { cost, successChance, distribution, outcome, budget, breakeven, strategies } = result;
 
 console.log('═'.repeat(64));
 console.log(`한손검 업횟 ${problem.maxSlots}회 → 목표 공${problem.target}`);
@@ -139,7 +139,7 @@ for (const [slots, attack] of [
   [1, 8],
   [0, 8],
 ] as const) {
-  const a = advise(result.problem, cost, slots, attack);
+  const a = advise(result.problem, cost, successChance, slots, attack);
   const next =
     a.action.kind === 'scroll'
       ? `${names[a.action.scrollIndex]} 바르기`
@@ -152,6 +152,7 @@ for (const [slots, attack] of [
           : '방법 없음';
   console.log(
     `  공${attack} ${slots}회 남음 → ${next.padEnd(18)} ` +
+      `달성확률 ${(a.successProbability * 100).toFixed(1).padStart(5)}%, ` +
       `남은 기대비용 ${money(a.remainingCost).padStart(8)}, 지금 팔면 ${money(a.salvageValue).padStart(8)}`,
   );
 }
