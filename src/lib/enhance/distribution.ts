@@ -57,3 +57,18 @@ export function mix(outcomes: Outcome[] | null | undefined, f: (value: number) =
   for (const o of normalize(outcomes)) sum += o.probability * f(o.value);
   return sum;
 }
+
+/**
+ * 정규화를 한 번만 해 두고 되쓰는 믹서.
+ *
+ * `mix()` 는 부를 때마다 normalize() 로 배열을 새로 만들고 정렬한다. 바깥에서 한두 번
+ * 부를 때는 상관없지만 DP 의 최내곽 루프에서 부르면 그게 전부 비용이 된다.
+ * 격자 인덱스까지 미리 접어 두면 안쪽에서는 곱셈과 덧셈만 남는다.
+ */
+export function foldOutcomes<T>(
+  outcomes: Outcome[] | null | undefined,
+  at: (value: number) => T,
+): Array<{ probability: number; key: T }> {
+  const dist = outcomes?.length ? normalize(outcomes) : [{ value: 0, probability: 1 }];
+  return dist.map((o) => ({ probability: o.probability, key: at(o.value) }));
+}

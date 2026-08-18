@@ -1,4 +1,4 @@
-import { mix } from './distribution';
+import { foldOutcomes } from './distribution';
 import { tickCost } from './grid';
 import { makeEnhanceSalvage, prepareProblem } from './salvage';
 import {
@@ -66,14 +66,21 @@ export function solveMaxSuccess(input: Problem, options: BudgetOptions): BudgetS
   const buyTicks = problem.baseOptions.map((b) => tickCost(b.price, tick, 1));
 
   /**
-   * 매물 v 를 산 직후의 값. 리버스 무기처럼 시작 공격력이 랜덤이면 분포로 섞는다.
+   * 매물 v 를 산 직후에 들어서는 칸들. 리버스처럼 시작 공격력이 랜덤이면 여러 칸이다.
    * 합성 매물(완성품 직접 구매)은 이미 목표를 만족한 물건이라 분포를 타지 않는다.
+   *
+   * 최내곽 루프에서 도는 값이라 인덱스까지 미리 접어 둔다. 여기서 분포를 매번 정규화하면
+   * 셀 수 × 매물 수만큼 배열을 새로 만들게 되어 리버스 + 매물 11개에서 초 단위로 늘어난다.
    */
+  const entries = problem.baseOptions.map((base) =>
+    foldOutcomes(base.synthetic ? null : problem.startBonus, (delta) =>
+      gridIndex(axes, maxSlots, base.offset + delta),
+    ),
+  );
   const valueAfterBuying = (plane: number, v: number) => {
-    const base = problem.baseOptions[v];
-    return mix(base.synthetic ? null : problem.startBonus, (delta) =>
-      prob[plane + gridIndex(axes, maxSlots, base.offset + delta)],
-    );
+    let sum = 0;
+    for (const e of entries[v]) sum += e.probability * prob[plane + e.key];
+    return sum;
   };
   // 재시작 순비용은 (u, a) 마다 달라지므로 상태별로 계산한다.
 

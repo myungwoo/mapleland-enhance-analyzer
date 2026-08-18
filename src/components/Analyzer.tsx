@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { analyze, decodeAction, normalize, startSuccess, type Analysis } from '@/lib/enhance';
 import { formatMeso, formatPercent, MAN } from '@/lib/format';
 import { BarList, ProbabilityCurve } from './charts';
@@ -9,6 +9,7 @@ import { DEFAULT_INPUTS, reverseAttackBonus, toProblem, type Inputs } from './in
 import { ReverseOutcome } from './ReverseOutcome';
 import { PolicyHeatmap } from './PolicyHeatmap';
 import { StateAdvisor } from './StateAdvisor';
+import { useDebounced } from './useDebounced';
 import { Panel, Stat, Warning } from './ui';
 
 export function Analyzer() {
@@ -16,8 +17,8 @@ export function Analyzer() {
   const [selected, setSelected] = useState<{ slots: number; attack: number } | null>(null);
   const [pendingLevels, setPendingLevels] = useState(0);
 
-  // 무거운 계산은 뒤로 미뤄 입력이 먼저 반응하게 한다.
-  const settled = useDeferredValue(inputs);
+  // 입력칸은 즉시 반응하고, 무거운 분석만 타이핑이 멎은 뒤에 돈다.
+  const settled = useDebounced(inputs);
   const stale = settled !== inputs;
 
   const analysis = useMemo<Analysis | null>(() => {
@@ -43,7 +44,12 @@ export function Analyzer() {
           <InputPanel inputs={inputs} onChange={setInputs} />
         </div>
 
-        <div className={`flex flex-col gap-4 ${stale ? 'opacity-60' : ''}`}>
+        <div className={`relative flex flex-col gap-4 ${stale ? 'opacity-50' : ''}`}>
+          {stale && (
+            <span className="pointer-events-none absolute right-0 -top-5 text-[11px] text-ink-3">
+              입력 반영 중…
+            </span>
+          )}
           {analysis ? (
             <Results
               analysis={analysis}
