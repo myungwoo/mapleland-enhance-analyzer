@@ -60,6 +60,8 @@ export interface Analysis {
   budget: BudgetSolution | null;
   /** 예산을 안 넣어서 참고용 범위로 그린 곡선인지 */
   budgetIsAuto: boolean;
+  /** 사용자가 넣은 예산에서의 달성 확률. 예산을 안 넣었으면 null. */
+  budgetProbability: number | null;
   breakeven: BreakevenResult[] | null;
   /** 매물별 "얼마까지 주고 살 만한가" */
   bases: BaseValue[];
@@ -82,6 +84,7 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
       successChance,
       bases: [],
       budgetIsAuto: false,
+      budgetProbability: null,
       distribution: null,
       outcome: null,
       budget: null,
@@ -101,14 +104,21 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
   // 예산을 안 넣었어도 곡선 자체는 쓸모가 있다 — "얼마쯤 있으면 몇 %"를 보여 준다.
   // 넉넉한 기본 범위를 잡아 그리되, 그 사실을 밖에서 알 수 있게 표시한다.
   const budgetIsAuto = !(options.budget !== undefined && options.budget > 0);
-  const budgetAmount = budgetIsAuto
-    ? autoBudgetRange(cost, distribution)
-    : (options.budget as number);
+  // 비용 곡선과 나란히 놓고 보려면 같은 구간을 덮어야 한다. 예산 DP 는 어차피 모든 예산
+  // 수준을 한 번에 풀므로, 넓게 풀어 두고 사용자의 예산 지점만 따로 읽으면 된다.
+  const userBudget = budgetIsAuto ? 0 : (options.budget as number);
+  const budgetAmount = Math.max(userBudget, autoBudgetRange(cost, distribution));
 
   let budget: BudgetSolution | null = null;
+  let budgetProbability: number | null = null;
   if (Number.isFinite(budgetAmount) && budgetAmount > 0) {
     budget = solveMaxSuccess(problem, { budget: budgetAmount, ticks: options.budgetTicks });
-    if (!budgetIsAuto) warnings.push(...budget.warnings);
+    if (!budgetIsAuto) {
+      budgetProbability = budget.curve[Math.min(budget.ticks, Math.floor(userBudget / budget.tick))];
+      if (budgetProbability === 0) {
+        warnings.push('이 예산으로는 목표를 달성할 수 없습니다.');
+      }
+    }
   }
 
   if (distribution && distribution.coverage < 0.99) {
@@ -125,6 +135,7 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
     outcome,
     budget,
     budgetIsAuto,
+    budgetProbability,
     breakeven:
       options.includeBreakeven && problem.allowRestart
         ? breakevenPrices(alignSalvage(problem, cost))
@@ -143,10 +154,16 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
  */
 function autoBudgetRange(cost: CostSolution, distribution: CostDistribution | null): number {
   if (!Number.isFinite(cost.expectedCost) || cost.expectedCost <= 0) return 0;
-  const tail = distribution?.quantiles.p99;
-  return Number.isFinite(tail) && (tail as number) > 0
-    ? (tail as number) * 1.1
-    : cost.expectedCost * 4;
+  if (!distribution) return cost.expectedCost * 4;
+
+  // 비용 곡선과 같은 구간을 덮어야 나란히 놓고 볼 수 있다. 한쪽만 짧으면 그 뒤로
+  // 선이 끊겨 비교가 안 된다.
+  const { cdf, tick, ticks } = distribution;
+  const settled = cdf[ticks] * 0.999;
+  for (let i = 0; i <= ticks; i++) {
+    if (cdf[i] >= settled) return Math.max(i * tick, cost.expectedCost);
+  }
+  return ticks * tick;
 }
 
 /**

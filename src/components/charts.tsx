@@ -12,63 +12,70 @@ export interface CurveMarker {
   label: string;
 }
 
-/**
- * 누적 확률 곡선 (지출 → 달성 확률).
- *
- * 계열이 하나뿐이라 범례 없이 제목이 정체를 나른다. 그리드는 뒤로 물리고,
- * 분위수만 직접 라벨을 단다 — 모든 점에 숫자를 다는 건 금지.
- */
-export function ProbabilityCurve({
-  values,
-  step,
-  xLabel,
-  markers = [],
-  color = 'var(--series-100)',
-}: {
-  /** 0..1 확률 배열. 인덱스 i 는 지출 i*step 에 대응한다. */
+export interface CurveSeries {
+  label: string;
+  /** 0..1 확률 배열. 인덱스 i 는 금액 i*step 에 대응한다. */
   values: Float64Array;
   step: number;
+  color: string;
+}
+
+/**
+ * 금액 → 달성 확률 곡선. 여러 계열을 겹쳐 그릴 수 있다.
+ *
+ * 겹쳐 그리는 이유가 있다. "최소비용 전략을 그대로 따를 때"와 "그 예산에 맞춰 다시
+ * 최적화할 때"는 축의 의미가 완전히 같고 전략만 다르다. 따로 그리면 같은 그림 두 장으로
+ * 보이지만, 포개 놓으면 둘 사이의 간격이 곧 재최적화의 값어치가 된다.
+ *
+ * 계열마다 step 이 달라 격자가 어긋나므로, 공통 x 범위를 잡고 각자에서 다시 읽어 온다.
+ */
+export function ProbabilityCurve({
+  series,
+  xLabel,
+  markers = [],
+}: {
+  series: CurveSeries[];
   xLabel: string;
   markers?: CurveMarker[];
-  color?: string;
 }) {
   const ref = useRef<SVGSVGElement>(null);
-  const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
+  const [hoverX, setHoverX] = useState<number | null>(null);
 
-  // 화면에 필요한 만큼만 남기고 솎아낸다. 4,000점을 다 그릴 이유가 없다.
-  const maxIndex = lastMeaningfulIndex(values);
-  const sampleCount = Math.min(240, maxIndex + 1);
-  const points: Array<{ spend: number; p: number }> = [];
-  for (let i = 0; i < sampleCount; i++) {
-    const idx = Math.round((i / (sampleCount - 1)) * maxIndex);
-    points.push({ spend: idx * step, p: values[idx] });
-  }
-
-  // 마커가 축 밖으로 잘리지 않도록 도메인에 포함시키되, 유한한 것만 센다.
-  // 무한대가 하나라도 섞이면 축이 통째로 무너져 SVG 좌표가 NaN 이 된다.
   const usable = markers.filter((m) => Number.isFinite(m.x));
-  const spent = points[points.length - 1]?.spend;
+  const live = series.filter((s) => s.values.length > 1 && Number.isFinite(s.step) && s.step > 0);
+
   const maxSpend = Math.max(
-    Number.isFinite(spent) && (spent as number) > 0 ? (spent as number) : 1,
+    1,
+    ...live.map((s) => lastMeaningfulIndex(s.values) * s.step),
     ...usable.map((m) => m.x),
   );
-  const sx = (spend: number) =>
-    PAD.left + (spend / maxSpend) * (W - PAD.left - PAD.right);
-  const sy = (p: number) => PAD.top + (1 - p) * (H - PAD.top - PAD.bottom);
 
-  const path = points
-    .map((pt, i) => `${i === 0 ? 'M' : 'L'}${sx(pt.spend).toFixed(1)},${sy(pt.p).toFixed(1)}`)
-    .join('');
+  const sx = (spend: number) => PAD.left + (spend / maxSpend) * (W - PAD.left - PAD.right);
+  const sy = (p: number) => PAD.top + (1 - p) * (H - PAD.top - PAD.bottom);
+  const readAt = (s: CurveSeries, spend: number) =>
+    s.values[Math.max(0, Math.min(s.values.length - 1, Math.round(spend / s.step)))];
+
+  // 계열마다 정의된 구간이 다르다 (예산 곡선은 그 예산까지만 존재한다). 자기 구간을
+  // 넘어서까지 그리면 마지막 값이 평평하게 이어져, 위에 있어야 할 선이 아래로 보인다.
+  const domainOf = (s: CurveSeries) => (s.values.length - 1) * s.step;
+
+  const SAMPLES = 200;
+  const paths = live.map((s) => {
+    const end = Math.min(maxSpend, domainOf(s));
+    let d = '';
+    for (let i = 0; i <= SAMPLES; i++) {
+      const spend = (i / SAMPLES) * end;
+      d += `${i === 0 ? 'M' : 'L'}${sx(spend).toFixed(1)},${sy(readAt(s, spend)).toFixed(1)}`;
+    }
+    return { series: s, d, end };
+  });
 
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = ref.current?.getBoundingClientRect();
     if (!rect) return;
     const ratio = (e.clientX - rect.left) / rect.width;
-    const spend = Math.max(0, Math.min(maxSpend, ratio * W >= PAD.left
-      ? ((ratio * W - PAD.left) / (W - PAD.left - PAD.right)) * maxSpend
-      : 0));
-    const idx = Math.max(0, Math.min(maxIndex, Math.round(spend / step)));
-    setHover({ x: idx * step, y: values[idx] });
+    const spend = ((ratio * W - PAD.left) / (W - PAD.left - PAD.right)) * maxSpend;
+    setHoverX(Math.max(0, Math.min(maxSpend, spend)));
   };
 
   return (
@@ -80,7 +87,7 @@ export function ProbabilityCurve({
         role="img"
         aria-label={`${xLabel}별 달성 확률 곡선`}
         onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
+        onMouseLeave={() => setHoverX(null)}
       >
         {[0, 0.25, 0.5, 0.75, 1].map((p) => (
           <g key={p}>
@@ -92,22 +99,13 @@ export function ProbabilityCurve({
               stroke="var(--line)"
               strokeWidth={1}
             />
-            <text
-              x={PAD.left - 6}
-              y={sy(p) + 3}
-              textAnchor="end"
-              fontSize={9}
-              fill="var(--ink-3)"
-            >
+            <text x={PAD.left - 6} y={sy(p) + 3} textAnchor="end" fontSize={9} fill="var(--ink-3)">
               {p * 100}%
             </text>
           </g>
         ))}
 
-        <path d={path} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
-
         {usable.map((m, i) => {
-          // 라벨끼리 겹치지 않게 층을 나누고, 오른쪽 끝에서는 왼쪽으로 붙인다.
           const x = sx(m.x);
           const nearRight = x > W - PAD.right - 70;
           return (
@@ -134,24 +132,33 @@ export function ProbabilityCurve({
           );
         })}
 
-        {hover && (
+        {paths.map(({ series: s, d }) => (
+          <path key={s.label} d={d} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" />
+        ))}
+
+        {hoverX !== null && (
           <g>
             <line
-              x1={sx(hover.x)}
-              x2={sx(hover.x)}
+              x1={sx(hoverX)}
+              x2={sx(hoverX)}
               y1={PAD.top}
               y2={H - PAD.bottom}
               stroke="var(--ink-2)"
               strokeWidth={1}
             />
-            <circle
-              cx={sx(hover.x)}
-              cy={sy(hover.y)}
-              r={4.5}
-              fill={color}
-              stroke="var(--surface-1)"
-              strokeWidth={2}
-            />
+            {live
+              .filter((s) => hoverX <= domainOf(s))
+              .map((s) => (
+                <circle
+                  key={s.label}
+                  cx={sx(hoverX)}
+                  cy={sy(readAt(s, hoverX))}
+                  r={4.5}
+                  fill={s.color}
+                  stroke="var(--surface-1)"
+                  strokeWidth={2}
+                />
+              ))}
           </g>
         )}
 
@@ -176,12 +183,25 @@ export function ProbabilityCurve({
           </text>
         ))}
       </svg>
-      <figcaption className="mt-1 flex min-h-[16px] justify-between text-[11px] text-ink-3">
+
+      <figcaption className="mt-1 flex min-h-[16px] flex-wrap items-center gap-x-3 text-[11px] text-ink-3">
         <span>{xLabel}</span>
-        {hover && (
-          <span className="tabular text-ink-1">
-            {formatMeso(hover.x)} → {formatPercent(hover.y)}
-          </span>
+        {hoverX !== null && (
+          <>
+            <span className="tabular text-ink-1">{formatMeso(hoverX)}</span>
+            {live
+              .filter((s) => hoverX <= domainOf(s))
+              .map((s) => (
+                <span key={s.label} className="inline-flex items-center gap-1">
+                  <span
+                    aria-hidden
+                    className="inline-block size-2"
+                    style={{ background: s.color }}
+                  />
+                  <span className="tabular text-ink-1">{formatPercent(readAt(s, hoverX))}</span>
+                </span>
+              ))}
+          </>
         )}
       </figcaption>
     </figure>

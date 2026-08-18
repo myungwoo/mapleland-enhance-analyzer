@@ -3,7 +3,7 @@ import { solveMaxSuccess } from '../dp-budget';
 import { solveMinCost } from '../dp-cost';
 import { attackDistribution, costDistribution, successProbabilities } from '../evaluate';
 import { breakevenPrices } from '../breakeven';
-import { baseValues } from '../index';
+import { analyze, baseValues } from '../index';
 import { prepareProblem } from '../salvage';
 import { gridIndex } from '../types';
 import { baseProblem } from './fixtures';
@@ -289,5 +289,50 @@ describe('매물별 살 만한 상한', () => {
     const only = baseProblem({ target: 10, baseOptions: [{ offset: 0, price: 4_000_000 }] });
     const solved = solveMinCost(only);
     expect(baseValues(only, solved)[0].worthPayingUpTo).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe('두 곡선을 나란히 놓을 때', () => {
+  // 화면에서 겹쳐 그리므로 "초록이 파랑 아래로 내려가지 않는다"가 눈에 보이는 약속이 된다.
+  // 예산 곡선이 비용 곡선보다 짧으면 그 뒤가 평평해져 역전처럼 보이던 적이 있다.
+  const cases = [
+    ['예산 없음', {}],
+    ['예산 설정', { budget: 40_000_000 }],
+  ] as const;
+
+  it.each(cases)('%s — 예산 최적 곡선이 비용 최적 곡선 아래로 내려가지 않는다', (_label, opts) => {
+    const result = analyze(baseProblem({ target: 12 }), opts);
+    const cdf = result.distribution!;
+    const budget = result.budget!;
+
+    for (let i = 0; i <= budget.ticks; i++) {
+      const spend = i * budget.tick;
+      const fixed = cdf.cdf[Math.min(cdf.ticks, Math.round(spend / cdf.tick))];
+      expect(budget.curve[i]).toBeGreaterThan(fixed - 0.02);
+    }
+  });
+
+  it('두 곡선이 같은 구간을 덮는다', () => {
+    const result = analyze(baseProblem({ target: 12 }));
+    const budgetEnd = (result.budget!.curve.length - 1) * result.budget!.tick;
+    // 비용 곡선이 사실상 끝나는 지점까지는 예산 곡선도 그려져야 비교가 된다.
+    const cdf = result.distribution!;
+    const settled = cdf.cdf[cdf.ticks] * 0.999;
+    let meaningfulEnd = cdf.ticks * cdf.tick;
+    for (let i = 0; i <= cdf.ticks; i++) {
+      if (cdf.cdf[i] >= settled) {
+        meaningfulEnd = i * cdf.tick;
+        break;
+      }
+    }
+    expect(budgetEnd).toBeGreaterThanOrEqual(meaningfulEnd * 0.99);
+  });
+
+  it('예산을 넣으면 그 지점의 확률을 따로 알려준다', () => {
+    const result = analyze(baseProblem({ target: 12 }), { budget: 40_000_000 });
+    expect(result.budgetIsAuto).toBe(false);
+    expect(result.budgetProbability).toBeGreaterThan(0);
+    expect(result.budgetProbability).toBeLessThan(1);
+    expect(analyze(baseProblem({ target: 12 })).budgetProbability).toBeNull();
   });
 });

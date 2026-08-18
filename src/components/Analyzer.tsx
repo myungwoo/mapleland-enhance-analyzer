@@ -90,7 +90,7 @@ function Results({
   pendingLevels: number;
   onPendingLevelsChange: (levels: number) => void;
 }) {
-  const { problem, cost, distribution, outcome, budget, budgetIsAuto, breakeven, bases, strategies, warnings } =
+  const { problem, cost, distribution, outcome, budget, budgetIsAuto, budgetProbability, breakeven, bases, strategies, warnings } =
     analysis;
 
   const start = problem.baseOptions[cost.bestBaseIndex];
@@ -228,61 +228,105 @@ function Results({
 
       <PolicyHeatmap analysis={analysis} selected={selected} onSelect={onSelect} />
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        {distribution && (
-          <Panel title="총 지출 분포" hint="이 금액 안에 끝날 확률">
-            <ProbabilityCurve
-              values={distribution.cdf}
-              step={distribution.tick}
-              xLabel="총 지출"
-              markers={[
-                { x: distribution.quantiles.p50, label: '중앙' },
-                { x: distribution.quantiles.p90, label: '상위10%' },
-              ]}
-            />
-            {distribution.creditCapped && (
-              <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
-                되판 돈이 새 매물값을 넘는 구간은 재투자되지 않는 것으로 봤습니다. 이 곡선은
-                기대 총비용보다 약간 보수적입니다.
-              </p>
+      <Panel
+        title="예산 대비 달성 확률"
+        hint={
+          budgetIsAuto ? '예산 미설정 — 참고용 범위' : `현재 예산 ${formatMeso(budgetMeso ?? 0)}`
+        }
+        right={
+          <ul className="flex shrink-0 items-center gap-2 text-[10px] text-ink-2">
+            {distribution && (
+              <li className="flex items-center gap-1">
+                <span
+                  aria-hidden
+                  className="inline-block size-2.5"
+                  style={{ background: 'var(--series-100)' }}
+                />
+                최소비용 전략 그대로
+              </li>
             )}
-          </Panel>
+            {budget && (
+              <li className="flex items-center gap-1">
+                <span
+                  aria-hidden
+                  className="inline-block size-2.5"
+                  style={{ background: 'var(--series-60)' }}
+                />
+                예산에 맞춰 다시 짤 때
+              </li>
+            )}
+          </ul>
+        }
+      >
+        <ProbabilityCurve
+          xLabel="쓸 수 있는 돈"
+          series={[
+            ...(distribution
+              ? [
+                  {
+                    label: '최소비용 전략 그대로',
+                    values: distribution.cdf,
+                    step: distribution.tick,
+                    color: 'var(--series-100)',
+                  },
+                ]
+              : []),
+            ...(budget
+              ? [
+                  {
+                    label: '예산에 맞춰 다시 짤 때',
+                    values: budget.curve,
+                    step: budget.tick,
+                    color: 'var(--series-60)',
+                  },
+                ]
+              : []),
+          ]}
+          markers={[
+            ...(distribution
+              ? [
+                  { x: distribution.quantiles.p50, label: '중앙' },
+                  { x: distribution.quantiles.p90, label: '상위10%' },
+                ]
+              : []),
+            ...(!budgetIsAuto && budgetMeso ? [{ x: budgetMeso, label: '내 예산' }] : []),
+          ]}
+        />
+
+        {budgetProbability !== null && (
+          <p className="mt-2 text-[12px] text-ink-2">
+            지금 예산 {formatMeso(budgetMeso ?? 0)} 으로 목표 달성 확률{' '}
+            <b className="tabular text-[color:var(--series-60)]">
+              {formatPercent(budgetProbability)}
+            </b>
+          </p>
         )}
 
-        {budget && (
-          <Panel
-            title="예산별 달성 확률"
-            hint={
-              budgetIsAuto
-                ? '예산 미설정 — 참고용 범위'
-                : `현재 예산 ${formatMeso(budgetMeso ?? 0)}`
-            }
-          >
-            <ProbabilityCurve
-              values={budget.curve}
-              step={budget.tick}
-              xLabel="예산"
-              color="var(--series-60)"
-              markers={
-                budgetIsAuto || !budgetMeso ? [] : [{ x: budgetMeso, label: '내 예산' }]
-              }
-            />
-            {budgetIsAuto ? (
-              <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
-                예산을 넣으면 그 지점을 표시하고 달성 확률을 짚어 줍니다. 지금은 얼마쯤
-                준비하면 몇 %인지 곡선으로만 보여 줍니다.
-              </p>
-            ) : (
-              <p className="mt-2 text-[12px] text-ink-2">
-                지금 예산으로 목표 달성 확률{' '}
-                <b className="tabular text-[color:var(--series-60)]">
-                  {formatPercent(budget.successProbability)}
-                </b>
-              </p>
-            )}
-          </Panel>
-        )}
-      </div>
+        <div className="mt-2 border-t border-line pt-2 text-[11px] leading-relaxed text-ink-3">
+          <p>
+            <b className="text-[color:var(--series-100)]">파란 선</b>은{' '}
+            <b>최적 전략 격자에 그려진 그 전략</b>을 그대로 따라갔을 때 그 금액 안에 끝날
+            확률입니다. 돈이 얼마나 들지를 보는 예보고, 위의 지출 중앙값·상위 10%가 여기서
+            나옵니다.
+          </p>
+          <p className="mt-1">
+            <b className="text-[color:var(--series-60)]">초록 선</b>은 <b>가진 돈이 딱 그만큼일 때</b>{' '}
+            확률을 최대로 하는 전략을 새로 짰을 때의 확률입니다. 재도전할 돈이 없으면 승산 낮은
+            아이템을 일찍 접거나 마지막에 크게 걸어야 하므로, 격자와 다른 수를 둡니다.
+          </p>
+          <p className="mt-1">
+            그래서 초록 선은 파란 선보다 낮아질 수 없고,{' '}
+            <b className="text-ink-2">둘 사이의 간격이 곧 &ldquo;예산에 맞춰 다시 짜서 얻는 이득&rdquo;</b>
+            입니다. 돈이 넉넉해질수록 간격이 사라집니다.
+          </p>
+          {distribution?.creditCapped && (
+            <p className="mt-1">
+              되판 돈이 새 매물값을 넘는 구간은 재투자되지 않는 것으로 봤습니다. 두 곡선 모두
+              그만큼 보수적입니다.
+            </p>
+          )}
+        </div>
+      </Panel>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel
