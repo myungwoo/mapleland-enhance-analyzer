@@ -7,7 +7,7 @@
 
 ```bash
 npm run dev        # 개발 서버
-npm test           # 엔진 검증 36건
+npm test           # 엔진 검증 80건
 npm run typecheck  # next typegen + tsc  (typegen 먼저 돌아야 라우트 타입이 생긴다)
 npm run lint
 npm run build      # 정적 내보내기 → out/

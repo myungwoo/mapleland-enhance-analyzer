@@ -18,8 +18,15 @@ export function InputPanel({
   const preset = findPreset(inputs.presetId);
   const patch = (p: Partial<Inputs>) => onChange({ ...inputs, ...p });
 
+  // 완작 시세 표의 세로 범위. 하옵 매물을 살 생각이면 하옵 완작의 회수값도 물어봐야
+  // 한다 — 곡선의 최저 칸이 그 아래 전부의 바닥값이 되므로, 하옵 칸이 없으면 "하옵
+  // 완작은 유저한테 안 팔리고 상점행" 을 적을 방법이 없다.
+  const lowestRow = Math.min(
+    0,
+    ...inputs.bases.filter((b) => b.price != null && b.price > 0).map((b) => b.offset),
+  );
   const resaleRows: number[] = [];
-  for (let a = 0; a <= inputs.target; a++) resaleRows.push(a);
+  for (let a = lowestRow; a <= inputs.target; a++) resaleRows.push(a);
 
   // 비워 둔 칸에는 곡선이 예측한 값을 회색으로 띄운다. 실제 시세와 얼마나 어긋나는지
   // 눈으로 보고 고칠 수 있어야 한다. 보간은 배율에 무관해서 만 단위 그대로 넣어도 된다.
@@ -137,6 +144,12 @@ export function InputPanel({
           업횟이 이득이 될지 부담이 될지도 이 곡선에서 갈립니다. 회색 숫자는 예측값이니
           실제와 다르면 채워 주세요.
         </p>
+        <p className="mb-2 text-[11px] leading-relaxed text-ink-3">
+          <b>채운 칸 중 가장 낮은 공격력의 값이 그 아래 전부의 바닥값</b>이 됩니다. 어느
+          선 밑으로는 완작이라도 유저끼리 안 팔리고 상점에 넘기는 게 회수의 전부라, 곡선을
+          더 내리지 않습니다. 그러니 그 최저 칸에는 <b>상점 판매가</b>를 적고, 상점에 팔
+          생각이 없으면 <b>0</b> 을 적어 주세요.
+        </p>
         {!predictResale && (
           <p className="mb-2 border-l-2 border-[color:var(--warn)] bg-[#2a2417] px-2 py-1.5 text-[11px] leading-relaxed text-ink-2">
             전부 비어 있어 <b>되팔기를 끕니다</b> — 손절해도 회수 0으로 계산합니다. 리버스처럼
@@ -148,7 +161,7 @@ export function InputPanel({
             <NumberField
               key={a}
               compact
-              label={`공${a}`}
+              label={a < 0 ? baseLabel(a) : `공${a}`}
               value={inputs.resale[a] ?? null}
               onChange={(v) => patch({ resale: { ...inputs.resale, [a]: v } })}
               suffix="만"

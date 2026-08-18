@@ -70,9 +70,17 @@ export function makeEnhanceSalvage(problem: Problem): EnhanceSalvage {
  * 업횟 0회 기준, 공격력별 시세를 보간한다.
  *
  * 메이플랜드 시세는 공격력이 오를수록 초선형으로 뛰므로 점 사이는 기하 보간(로그 선형)을
- * 쓴다. 가격 0이 끼면 산술 보간으로 떨어진다. 아래쪽은 같은 비율로 외삽하지만,
- * 위쪽으로는 외삽하지 않는다 — 공격력당 2배씩 뛰는 곡선을 몇 단계만 연장해도 값이
- * 폭주하고 있지도 않은 차익거래가 생겨난다.
+ * 쓴다. 가격 0이 끼면 산술 보간으로 떨어진다. **양쪽 바깥으로는 외삽하지 않고 끝점 값을
+ * 그대로 유지한다.**
+ *
+ * 위쪽으로 연장하지 않는 이유는 폭주다 — 공격력당 2배씩 뛰는 곡선을 몇 단계만 늘려도
+ * 값이 터지고, 있지도 않은 차익거래가 모델 안에 생긴다.
+ *
+ * 아래쪽은 시장이 먼저 사라져서다. 어느 선 밑으로 내려가면 완작이라도 유저 사이에서는
+ * 안 팔리고 회수 수단이 상점 판매로 바뀌는데, 상점가는 공격력을 따라 내려가지 않는다.
+ * 그래서 곡선을 연장해 0 근처로 떨어뜨리는 것보다 **입력한 최저 공격력의 값을 바닥으로
+ * 깔아 두는 쪽이 현실에 가깝다.** 대신 그 최저 칸에 무엇을 적느냐가 곧 바닥값이 된다 —
+ * 상점에 팔 생각이면 상점 판매가를, 팔 생각이 없으면 0 을 적는다는 규약이다.
  */
 export function makeSalvageFn(model: SalvageModel | null): (attack: number) => number {
   if (!model || model.byAttack.length === 0) return () => 0;
@@ -80,8 +88,7 @@ export function makeSalvageFn(model: SalvageModel | null): (attack: number) => n
   const pts = [...model.byAttack].sort((x, y) => x.attack - y.attack);
 
   return (attack) => {
-    if (pts.length === 1) return Math.max(0, pts[0].price);
-    if (attack <= pts[0].attack) return Math.max(0, extrapolate(pts[0], pts[1], attack));
+    if (attack <= pts[0].attack) return Math.max(0, pts[0].price);
     if (attack >= pts[pts.length - 1].attack) return Math.max(0, pts[pts.length - 1].price);
 
     let i = 0;
@@ -134,16 +141,4 @@ function interpolate(lo: Point, hi: Point, attack: number): number {
     return lo.price * Math.pow(hi.price / lo.price, t);
   }
   return lo.price + (hi.price - lo.price) * t;
-}
-
-/** `anchor` 를 기준점으로, `anchor`—`other` 구간의 기울기를 그대로 연장한다. */
-function extrapolate(anchor: Point, other: Point, attack: number): number {
-  const step = attack - anchor.attack;
-  const span = anchor.attack - other.attack; // anchor 방향이 양수
-  if (span === 0) return anchor.price;
-  if (anchor.price > 0 && other.price > 0) {
-    const ratioPerAttack = Math.pow(anchor.price / other.price, 1 / span);
-    return anchor.price * Math.pow(ratioPerAttack, step);
-  }
-  return anchor.price + ((anchor.price - other.price) / span) * step;
 }
