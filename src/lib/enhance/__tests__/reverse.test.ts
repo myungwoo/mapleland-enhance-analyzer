@@ -151,3 +151,30 @@ describe('이 무기로 목표를 만들 확률', () => {
     expect(fromChance).toBeCloseTo(1 - outcome.abandonProbability, 9);
   });
 });
+
+describe('레벨업까지 더해야 닿는 목표', () => {
+  // 100% 주문서만 쓰면 업횟 7회로 +7 이 한계다. 레벨업이 최대 +6 을 얹어 주므로
+  // 목표 +12 는 도달 가능하다. 도달 판정이 시작 보너스를 빼먹으면 "불가능"이 된다.
+  const problem = reverseProblem({
+    target: 12,
+    scrolls: reverseProblem().scrolls.filter((s) => s.id === '100'),
+  });
+
+  it('레벨업을 더하면 닿는 목표를 불가능이라고 하지 않는다', () => {
+    const solution = solveMinCost(problem);
+    expect(solution.feasible).toBe(true);
+    expect(Number.isFinite(solution.expectedCost)).toBe(true);
+    expect(solution.warnings.join(' ')).not.toContain('도달할 수 없습니다');
+  });
+
+  it('레벨업이 없으면 같은 목표가 실제로 불가능해진다', () => {
+    const noLevels = solveMinCost({ ...problem, startBonus: null });
+    expect(noLevels.feasible).toBe(false);
+  });
+
+  it('격자가 레벨업까지 더한 최대 공격력을 담는다', () => {
+    const solution = solveMinCost(problem);
+    // 매물 오프셋 0 + 레벨업 6 + 100% 7회 = 13
+    expect(solution.axes.attackMax).toBeGreaterThanOrEqual(13);
+  });
+});

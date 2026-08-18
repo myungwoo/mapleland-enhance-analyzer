@@ -110,6 +110,12 @@ export interface Axes {
   span: number;
 }
 
+/** 시작 보너스가 낼 수 있는 최대 공격력. 없으면 0. */
+export function maxStartBonus(problem: Problem): number {
+  const positive = problem.startBonus?.filter((o) => o.probability > 0) ?? [];
+  return positive.length ? Math.max(...positive.map((o) => o.value)) : 0;
+}
+
 /** (u, a) → 1차원 인덱스 */
 export function gridIndex(axes: Axes, slotsLeft: number, attack: number): number {
   const a = attack < axes.attackMin
@@ -124,9 +130,11 @@ export function makeAxes(problem: Problem): Axes {
   const offsets = problem.baseOptions.map((b) => b.offset);
   const maxGain = Math.max(...problem.scrolls.map((s) => s.attackGain), 0);
   const attackMin = Math.min(0, ...offsets);
+  // 리버스 레벨업처럼 매물이 공격력을 달고 나오면 도달 범위가 그만큼 넓어진다.
+  const maxBonus = maxStartBonus(problem);
   const attackMax = Math.max(
     problem.target,
-    Math.max(0, ...offsets) + problem.maxSlots * maxGain,
+    Math.max(0, ...offsets) + maxBonus + problem.maxSlots * maxGain,
   );
   return {
     maxSlots: problem.maxSlots,
