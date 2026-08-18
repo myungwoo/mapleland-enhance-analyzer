@@ -1,0 +1,101 @@
+@import 'tailwindcss';
+
+/*
+ * 게임 화면에 가까운 어두운 단일 테마.
+ *
+ * 계열색 4종(주문서 3 + 손절)은 dataviz 검증기의 all-pairs 기준을 통과한 조합이다
+ * (dark, surface #1a1d21): 색맹 분리 ΔE 7.2 로 6–8 경고대에 있어 **보조 인코딩이
+ * 필수**다 — 그래서 정책 격자의 모든 칸에 문자 라벨이 함께 들어간다. 색을 바꿀 거면
+ * dataviz 스킬의 validate_palette.js 를 다시 돌릴 것.
+ */
+:root {
+  color-scheme: dark;
+
+  --surface-0: #101215; /* 페이지 바닥 */
+  --surface-1: #1a1d21; /* 패널 = 차트 표면 */
+  --surface-2: #23272d; /* 패널 안에서 한 단 올라온 면 */
+  --surface-3: #2b3037;
+
+  --ink-1: #f2efe4;
+  --ink-2: #b9b3a1;
+  --ink-3: #83807a;
+
+  --line: #2f343b;
+  --line-strong: #3d434c;
+
+  --gold: #e8b04b; /* 메이플 특유의 금색 강조 */
+  --gold-dim: #8a6a2b;
+
+  --series-100: #3987e5; /* 100% 주문서 */
+  --series-60: #199e70; /* 60% 주문서 */
+  --series-10: #c98500; /* 10% 주문서 */
+  --series-stop: #d03b3b; /* 손절 */
+  --series-done: #4b5561; /* 목표 달성 (색이 아니라 상태) */
+
+  --good: #0ca30c;
+  --warn: #fab219;
+}
+
+@theme inline {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-gold: var(--gold);
+  --font-pixel: 'Galmuri11', 'Apple SD Gothic Neo', sans-serif;
+  --font-pixel-mono: 'GalmuriMono11', 'Galmuri11', ui-monospace, monospace;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 0%, #1b2028 0%, transparent 60%),
+    var(--surface-0);
+  color: var(--ink-1);
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+/* 클래식 아이템창 느낌의 2px 테두리 + 안쪽 하이라이트 */
+.panel {
+  background: var(--surface-1);
+  border: 2px solid var(--line-strong);
+  box-shadow:
+    inset 0 0 0 1px #12151a,
+    0 2px 0 0 #0a0c0f;
+}
+
+.panel-head {
+  background: linear-gradient(180deg, var(--surface-3) 0%, var(--surface-2) 100%);
+  border-bottom: 2px solid var(--line-strong);
+}
+
+.inset {
+  background: #14171b;
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 0 #0b0d10;
+}
+
+input[type='number'] {
+  font-family: var(--font-pixel-mono);
+  font-variant-numeric: tabular-nums;
+}
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 픽셀 아이콘은 확대해도 뭉개지지 않아야 한다 */
+.pixelated {
+  image-rendering: pixelated;
+}
