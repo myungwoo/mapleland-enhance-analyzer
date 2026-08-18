@@ -6,6 +6,7 @@ import { NumberField, Panel } from './ui';
 
 export function StateAdvisor({
   analysis,
+  noRestart,
   state,
   onChange,
   pendingLevels,
@@ -14,6 +15,8 @@ export function StateAdvisor({
   onPendingLevelsChange,
 }: {
   analysis: Analysis;
+  /** 손절을 금지한 모드 — 되팔이/재시작 관련 수치는 뜻이 없다 */
+  noRestart: boolean;
   state: { slots: number; attack: number };
   onChange: (next: { slots: number; attack: number }) => void;
   /** 아직 안 굴린 리버스 레벨업 횟수 */
@@ -87,14 +90,27 @@ export function StateAdvisor({
             <dd className="tabular text-right text-gold">
               {formatPercent(advice.successProbability)}
             </dd>
-            <dt className="text-ink-3">목표까지 더 들 돈 (기대값)</dt>
+            <dt className="text-ink-3">
+              {noRestart ? '여기서 더 쓸 돈 (기대값)' : '목표까지 더 들 돈 (기대값)'}
+            </dt>
             <dd className="tabular text-right text-ink-1">{formatMeso(advice.remainingCost)}</dd>
-            <dt className="text-ink-3">지금 팔면 받는 값 (이론가)</dt>
-            <dd className="tabular text-right text-ink-1">{formatMeso(advice.salvageValue)}</dd>
-            <dt className="text-ink-3">손절하고 새로 시작할 때 (기대값)</dt>
-            <dd className="tabular text-right text-ink-1">{formatMeso(advice.restartCost)}</dd>
+            {!noRestart && (
+              <>
+                <dt className="text-ink-3">지금 팔면 받는 값 (이론가)</dt>
+                <dd className="tabular text-right text-ink-1">
+                  {formatMeso(advice.salvageValue)}
+                </dd>
+                <dt className="text-ink-3">손절하고 새로 시작할 때 (기대값)</dt>
+                <dd className="tabular text-right text-ink-1">{formatMeso(advice.restartCost)}</dd>
+              </>
+            )}
           </dl>
-          {advice.action.kind === 'scroll' && advice.successProbability < 1e-9 ? (
+          {noRestart ? (
+            <p className="mt-2 text-[11px] leading-relaxed text-ink-3">
+              손절 없이 이 아이템 하나로만 갑니다. 달성이 보장되지 않으므로 확률을 최대로 하는
+              수를 고르고, 같은 확률이면 더 싼 쪽을 씁니다.
+            </p>
+          ) : advice.action.kind === 'scroll' && advice.successProbability < 1e-9 ? (
             <p className="mt-2 text-[11px] leading-relaxed text-[color:var(--warn)]">
               이 아이템으로는 목표에 못 닿습니다. 그런데도 주문서를 바르라는 건, 공격력을 올려
               <b> 되팔 값을 높이는 쪽이 그냥 손절하는 것보다 싸기 때문</b>입니다. 목표를 향한
@@ -106,7 +122,7 @@ export function StateAdvisor({
               늘 100%이고 그 대가가 위의 기대비용입니다.
             </p>
           )}
-          {advice.action.kind !== 'done' && (
+          {!noRestart && advice.action.kind !== 'done' && (
             <p className="mt-2 border-t border-line pt-2 text-[11px] leading-relaxed text-ink-2">
               {keepIsBetter ? (
                 <>

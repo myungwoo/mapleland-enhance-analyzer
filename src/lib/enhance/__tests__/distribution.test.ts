@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { solveMaxSuccess } from '../dp-budget';
 import { solveMinCost } from '../dp-cost';
-import { attackDistribution, costDistribution } from '../evaluate';
+import { attackDistribution, costDistribution, successProbabilities } from '../evaluate';
 import { breakevenPrices } from '../breakeven';
+import { gridIndex } from '../types';
 import { baseProblem } from './fixtures';
 
 describe('비용 분포', () => {
@@ -203,5 +204,47 @@ describe('상태의 이론가', () => {
         }
       }
     }
+  });
+});
+
+describe('손절을 금지했을 때', () => {
+  // 목표 공7 은 상옵 + 100% 7장이면 확정이라 확률이 1 이 된다. 확정으로는 못 닿는
+  // 목표라야 "보장은 안 되지만 최선을 다한다"는 동작이 드러난다.
+  const problem = baseProblem({ target: 10, allowRestart: false });
+  const solution = solveMinCost(problem);
+  const chance = successProbabilities(problem, solution);
+  const start = problem.baseOptions[solution.bestBaseIndex];
+  const startChance = chance[gridIndex(solution.axes, problem.maxSlots, start.offset)];
+
+  it('막다른 길이 아니라 쓸 수 있는 전략을 준다', () => {
+    expect(solution.feasible).toBe(true);
+    expect(Number.isFinite(solution.expectedCost)).toBe(true);
+    expect(solution.expectedCost).toBeGreaterThan(0);
+    expect(startChance).toBeGreaterThan(0);
+    expect(startChance).toBeLessThan(1); // 확률형 주문서라 보장은 못 한다
+  });
+
+  it('지출이 매물값 + 업횟만큼의 주문서값을 넘지 않는다', () => {
+    // 손절이 없으면 아이템 하나에 업횟만큼만 쓴다. 위로 유한하다.
+    const maxScroll = Math.max(...problem.scrolls.map((s) => s.price));
+    const maxBase = Math.max(...problem.baseOptions.map((b) => b.price));
+    expect(solution.expectedCost).toBeLessThanOrEqual(maxBase + problem.maxSlots * maxScroll);
+  });
+
+  it('손절을 허용할 때보다 달성 확률이 낮을 수 없다 — 같은 아이템 하나 기준', () => {
+    const withRestart = solveMinCost(baseProblem({ target: 10 }));
+    const oneItem = successProbabilities(baseProblem({ target: 10 }), withRestart);
+    const base = withRestart.axes;
+    const theirs = oneItem[gridIndex(base, problem.maxSlots, start.offset)];
+    // 비용을 무시하고 확률만 좇는 쪽이 확률로는 앞선다.
+    expect(startChance).toBeGreaterThanOrEqual(theirs - 1e-9);
+  });
+
+  it('예산 모드도 손절 금지를 지킨다', () => {
+    // 예산 DP 가 allowRestart 를 무시하고 손절을 허용하던 버그가 있었다.
+    const noRestart = solveMaxSuccess(problem, { budget: 500_000_000, ticks: 800 });
+    const free = solveMaxSuccess(baseProblem({ target: 10 }), { budget: 500_000_000, ticks: 800 });
+    expect(noRestart.successProbability).toBeLessThan(free.successProbability);
+    expect(noRestart.successProbability).toBeCloseTo(startChance, 2);
   });
 });

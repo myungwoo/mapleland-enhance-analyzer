@@ -34,8 +34,10 @@ export * from './distribution';
 
 export interface StrategyComparison {
   label: string;
-  /** 목표 달성 기대비용. 도달 불가면 Infinity. */
+  /** 목표 달성 기대비용. 도달 불가면 Infinity. 손절을 금지하면 "지출 기대값"이 된다. */
   expectedCost: number;
+  /** 아이템 하나로 목표를 만들 확률 */
+  successProbability: number;
 }
 
 export interface AnalyzeOptions {
@@ -83,7 +85,11 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
     };
   }
 
-  const distribution = costDistribution(problem, cost, { ticks: options.distributionTicks });
+  // 손절이 없으면 비용 CDF 와 손익분기는 뜻이 흐려진다. "이 금액 안에 끝날 확률"이
+  // 성공 확률에서 멈춰 버리고, 손익분기는 애초에 최소비용 기준이라 정의되지 않는다.
+  const distribution = problem.allowRestart
+    ? costDistribution(problem, cost, { ticks: options.distributionTicks })
+    : null;
   const outcome = attackDistribution(problem, cost);
 
   let budget: BudgetSolution | null = null;
@@ -92,7 +98,7 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
     warnings.push(...budget.warnings);
   }
 
-  if (distribution.coverage < 0.99) {
+  if (distribution && distribution.coverage < 0.99) {
     warnings.push(
       '비용 분포의 꼬리가 매우 두껍습니다. 상위 분위수는 표시된 값보다 클 수 있습니다.',
     );
@@ -105,7 +111,10 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
     distribution,
     outcome,
     budget,
-    breakeven: options.includeBreakeven ? breakevenPrices(alignSalvage(problem, cost)) : null,
+    breakeven:
+      options.includeBreakeven && problem.allowRestart
+        ? breakevenPrices(alignSalvage(problem, cost))
+        : null,
     strategies: compareStrategies(problem, cost),
     warnings,
   };
@@ -120,21 +129,42 @@ export function analyze(input: Problem, options: AnalyzeOptions = {}): Analysis 
 export function compareStrategies(problem: Problem, optimal: CostSolution): StrategyComparison[] {
   const aligned = alignSalvage(problem, optimal);
   const rows: StrategyComparison[] = [
-    { label: '최적 전략', expectedCost: optimal.expectedCost },
+    {
+      label: '최적 전략',
+      expectedCost: optimal.expectedCost,
+      successProbability: startSuccess(problem, optimal),
+    },
   ];
 
   for (const scroll of problem.scrolls) {
+    const variant = { ...aligned, scrolls: [scroll] };
+    const solved = solveMinCost(variant);
     rows.push({
       label: `${scroll.label}만 사용`,
-      expectedCost: solveMinCost({ ...aligned, scrolls: [scroll] }).expectedCost,
+      expectedCost: solved.expectedCost,
+      successProbability: startSuccess(variant, solved),
     });
   }
 
   if (Number.isFinite(optimal.finishedPrice)) {
-    rows.push({ label: '완성품 직접 구매', expectedCost: optimal.finishedPrice });
+    rows.push({
+      label: '완성품 직접 구매',
+      expectedCost: optimal.finishedPrice,
+      successProbability: 1,
+    });
   }
 
   return rows;
+}
+
+/** 첫 매물에서 출발했을 때 아이템 하나로 목표를 만들 확률. */
+export function startSuccess(problem: Problem, solution: CostSolution): number {
+  const prepared = prepareProblem(problem);
+  const chance = successProbabilities(prepared, solution);
+  const base = prepared.baseOptions[solution.bestBaseIndex];
+  return mix(base.synthetic ? null : prepared.startBonus, (delta) =>
+    chance[gridIndex(solution.axes, prepared.maxSlots, base.offset + delta)],
+  );
 }
 
 /** 기준 해와 같은 회수 모델을 쓰도록 문제를 맞춘다. */

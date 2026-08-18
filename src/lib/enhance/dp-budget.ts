@@ -116,8 +116,8 @@ export function solveMaxSuccess(input: Problem, options: BudgetOptions): BudgetS
         }
 
         // 손절 후 새 매물 구매 (완성품 직접 구매도 합성 매물로 여기 들어 있다)
-        const recovered = salvage(u, a);
-        for (let v = 0; v < problem.baseOptions.length; v++) {
+        const recovered = problem.allowRestart ? salvage(u, a) : 0;
+        for (let v = 0; problem.allowRestart && v < problem.baseOptions.length; v++) {
           // 예산 축은 음수 지출을 표현하지 못한다. 회수액이 새 매물값을 넘는 만큼은
           // 재투자되지 않는 것으로 보수적으로 처리한다.
           const t = tickCost(Math.max(0, problem.baseOptions[v].price - recovered), tick, 1);
