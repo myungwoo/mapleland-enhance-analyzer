@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { asset } from '@/lib/asset';
 import { PRESETS, findPreset } from '@/lib/enhance/data/presets';
 import { BASE_OFFSETS, baseLabel, type Inputs } from './inputs';
+import { OutcomeEditor } from './OutcomeEditor';
 import { NumberField, Panel } from './ui';
 
 export function InputPanel({
@@ -133,6 +134,65 @@ export function InputPanel({
             />
           ))}
         </div>
+      </Panel>
+
+      <Panel
+        title="리버스 아이템 레벨업"
+        hint="선택"
+        right={
+          <label className="flex shrink-0 items-center gap-1 text-[11px] text-ink-2">
+            <input
+              type="checkbox"
+              checked={inputs.reverse.enabled}
+              onChange={(e) =>
+                patch({ reverse: { ...inputs.reverse, enabled: e.target.checked } })
+              }
+            />
+            사용
+          </label>
+        }
+      >
+        {inputs.reverse.enabled ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-[11px] leading-relaxed text-ink-3">
+              레벨업을 먼저 끝내고 그 결과를 보고 강화한다고 봅니다. 확률은 유저 추정값이니
+              직접 바꿔 가며 돌려 보세요.
+            </p>
+            <p className="text-[11px] leading-relaxed text-[color:var(--warn)]">
+              위 <b>베이스 매물 시세</b>도 리버스 무기 시세로 바꿔 주세요. 레벨업으로 공격력이
+              공짜로 붙는 만큼 이론가가 올라가서, 일반 무기 시세를 그대로 두면 &ldquo;이론가보다
+              싼 매물&rdquo; 경고가 뜹니다.
+            </p>
+            <NumberField
+              label="레벨업"
+              value={inputs.reverse.levels}
+              onChange={(v) => patch({ reverse: { ...inputs.reverse, levels: v ?? 0 } })}
+              suffix="회"
+              min={0}
+              max={10}
+            />
+            <OutcomeEditor
+              label="공격력 (강화 분석에 반영)"
+              outcomes={inputs.reverse.attack}
+              onChange={(attack) => patch({ reverse: { ...inputs.reverse, attack } })}
+            />
+            <OutcomeEditor
+              label="주스탯 (참고용)"
+              outcomes={inputs.reverse.mainStat}
+              onChange={(mainStat) => patch({ reverse: { ...inputs.reverse, mainStat } })}
+            />
+            <OutcomeEditor
+              label="부스탯 (참고용)"
+              outcomes={inputs.reverse.subStat}
+              onChange={(subStat) => patch({ reverse: { ...inputs.reverse, subStat } })}
+            />
+          </div>
+        ) : (
+          <p className="text-[11px] leading-relaxed text-ink-3">
+            리버스 무기는 아이템 레벨이 오를 때마다 공격력·주스탯·부스탯이 확률적으로
+            오릅니다. 켜면 그 굴림을 시작 공격력으로 반영합니다.
+          </p>
+        )}
       </Panel>
 
       <Panel title="예산" hint="선택">

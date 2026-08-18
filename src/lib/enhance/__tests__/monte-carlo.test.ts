@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { solveMinCost, type CostSolution } from '../dp-cost';
 import { costDistribution } from '../evaluate';
+import { normalize } from '../distribution';
 import { prepareProblem } from '../salvage';
 import { decodeAction, gridIndex, type Problem } from '../types';
-import { baseProblem, makeRng } from './fixtures';
+import { baseProblem, makeRng, reverseProblem } from './fixtures';
 
 interface SimOptions {
   /**
@@ -27,11 +28,23 @@ function simulate(
   const { axes, policy } = solution;
   const samples = new Float64Array(runs);
 
+  /** 리버스 무기의 아이템 레벨업처럼, 매물을 살 때마다 시작 공격력을 다시 굴린다. */
+  const rollStart = (option: (typeof problem.baseOptions)[number]) => {
+    const dist = option.synthetic ? null : problem.startBonus;
+    if (!dist?.length) return option.offset;
+    let r = rng();
+    for (const o of normalize(dist)) {
+      r -= o.probability;
+      if (r <= 0) return option.offset + o.value;
+    }
+    return option.offset + normalize(dist)[normalize(dist).length - 1].value;
+  };
+
   for (let r = 0; r < runs; r++) {
     const first = problem.baseOptions[solution.bestBaseIndex];
     let cost = first.price;
     let slots = problem.maxSlots;
-    let attack = first.offset;
+    let attack = rollStart(first);
 
     let done = false;
     for (let step = 0; step < 5_000 && !done; step++) {
@@ -52,7 +65,7 @@ function simulate(
         const net = option.price - salvage(slots, attack);
         cost += options.capCredit ? Math.max(0, net) : net;
         slots = problem.maxSlots;
-        attack = option.offset;
+        attack = rollStart(option);
       }
     }
     if (!done) throw new Error('정책이 5,000수 안에 끝나지 않았습니다 (순환 의심)');
@@ -83,6 +96,8 @@ describe('몬테카를로 교차검증', () => {
     ['헐거운 목표 (+4)', baseProblem({ target: 4 })],
     ['회수 가치 없음', baseProblem({ salvage: null })],
     ['하옵만 살 수 있을 때', baseProblem({ baseOptions: [{ offset: -1, price: 2_000_000 }] })],
+    ['리버스 (시작 공격력 랜덤)', reverseProblem()],
+    ['리버스 · 빡센 목표 (+12)', reverseProblem({ target: 12 })],
   ];
 
   it.each(cases)('%s 의 기대비용이 시뮬레이션과 일치한다', (_label, problem) => {

@@ -7,8 +7,9 @@ import {
   type AttackDistribution,
   type CostDistribution,
 } from './evaluate';
+import { mix } from './distribution';
 import { prepareProblem } from './salvage';
-import { decodeAction, gridIndex, type Action, type Problem } from './types';
+import { decodeAction, gridIndex, type Action, type Outcome, type Problem } from './types';
 
 export * from './types';
 export { solveMinCost, type CostSolution } from './dp-cost';
@@ -24,8 +25,10 @@ export {
   makeSalvageFn,
   makeEnhanceSalvage,
   prepareProblem,
+  baseFairValue,
   type EnhanceSalvage,
 } from './salvage';
+export * from './distribution';
 
 export interface StrategyComparison {
   label: string;
@@ -134,6 +137,8 @@ export function alignSalvage(problem: Problem, reference: CostSolution): Problem
 export interface Advice {
   /** 지금 해야 할 행동 */
   action: Action;
+  /** 아직 남은 레벨업이 있어 먼저 굴려야 하는 상태인지 (리버스 무기) */
+  levelUpFirst: boolean;
   /** 이 상태에서 목표까지 남은 기대비용 */
   remainingCost: number;
   /** 지금 팔면 손에 쥐는 금액 */
@@ -153,15 +158,23 @@ export function advise(
   solution: CostSolution,
   slotsLeft: number,
   attack: number,
+  /**
+   * 아직 안 굴린 레벨업의 공격력 분포 (리버스 무기).
+   * 레벨업은 메소를 안 쓰고 정보만 늘려 주므로, 남아 있으면 먼저 굴리는 게 항상 낫다.
+   * 그래서 남은 값들은 전부 이 분포로 섞은 기댓값이다.
+   */
+  pendingLevelBonus?: Outcome[] | null,
 ): Advice {
-  const i = gridIndex(solution.axes, slotsLeft, attack);
-  const action = decodeAction(solution.policy[i]);
-  const remainingCost = solution.cost[i];
-  const salvageValue = solution.salvageAt(slotsLeft, attack);
+  const pending = pendingLevelBonus?.length ? pendingLevelBonus : null;
+  const at = (delta: number) => gridIndex(solution.axes, slotsLeft, attack + delta);
+  const action = decodeAction(solution.policy[at(0)]);
+  const remainingCost = mix(pending, (d) => solution.cost[at(d)]);
+  const salvageValue = mix(pending, (d) => solution.salvageAt(slotsLeft, attack + d));
   const restartCost = solution.expectedCost - salvageValue;
 
   return {
     action,
+    levelUpFirst: pending !== null,
     remainingCost,
     salvageValue,
     restartCost,

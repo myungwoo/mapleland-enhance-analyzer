@@ -5,7 +5,8 @@ import { analyze, decodeAction, type Analysis } from '@/lib/enhance';
 import { formatMeso, formatPercent, MAN } from '@/lib/format';
 import { BarList, ProbabilityCurve } from './charts';
 import { InputPanel } from './InputPanel';
-import { DEFAULT_INPUTS, toProblem, type Inputs } from './inputs';
+import { DEFAULT_INPUTS, reverseAttackBonus, toProblem, type Inputs } from './inputs';
+import { ReverseOutcome } from './ReverseOutcome';
 import { PolicyHeatmap } from './PolicyHeatmap';
 import { StateAdvisor } from './StateAdvisor';
 import { Panel, Stat, Warning } from './ui';
@@ -13,6 +14,7 @@ import { Panel, Stat, Warning } from './ui';
 export function Analyzer() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [selected, setSelected] = useState<{ slots: number; attack: number } | null>(null);
+  const [pendingLevels, setPendingLevels] = useState(0);
 
   // 무거운 계산은 뒤로 미뤄 입력이 먼저 반응하게 한다.
   const settled = useDeferredValue(inputs);
@@ -48,6 +50,9 @@ export function Analyzer() {
               selected={selected}
               onSelect={setSelected}
               budgetMeso={settled.budget ? settled.budget * MAN : null}
+              reverse={settled.reverse}
+              pendingLevels={Math.min(pendingLevels, settled.reverse.levels)}
+              onPendingLevelsChange={setPendingLevels}
             />
           ) : (
             <Panel title="입력이 더 필요합니다">
@@ -67,11 +72,17 @@ function Results({
   selected,
   onSelect,
   budgetMeso,
+  reverse,
+  pendingLevels,
+  onPendingLevelsChange,
 }: {
   analysis: Analysis;
   selected: { slots: number; attack: number } | null;
   onSelect: (s: { slots: number; attack: number }) => void;
   budgetMeso: number | null;
+  reverse: Inputs['reverse'];
+  pendingLevels: number;
+  onPendingLevelsChange: (levels: number) => void;
 }) {
   const { problem, cost, distribution, outcome, budget, breakeven, strategies, warnings } =
     analysis;
@@ -134,6 +145,8 @@ function Results({
           </div>
         </Panel>
       )}
+
+      {reverse.enabled && <ReverseOutcome reverse={reverse} />}
 
       <PolicyHeatmap analysis={analysis} selected={selected} onSelect={onSelect} />
 
@@ -274,7 +287,15 @@ function Results({
         </Panel>
       </div>
 
-      <StateAdvisor analysis={analysis} state={advisorState} onChange={onSelect} />
+      <StateAdvisor
+        analysis={analysis}
+        state={advisorState}
+        onChange={onSelect}
+        pendingLevels={pendingLevels}
+        maxPendingLevels={reverse.enabled ? reverse.levels : 0}
+        pendingLevelBonus={reverseAttackBonus(reverse, pendingLevels)}
+        onPendingLevelsChange={onPendingLevelsChange}
+      />
     </>
   );
 }
