@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import { asset } from '@/lib/asset';
 import { makeSalvageFn } from '@/lib/enhance';
 import { PRESETS, findPreset } from '@/lib/enhance/data/presets';
@@ -11,9 +12,12 @@ import { NumberField, Panel } from './ui';
 export function InputPanel({
   inputs,
   onChange,
+  onReset,
 }: {
   inputs: Inputs;
   onChange: (next: Inputs) => void;
+  /** 저장된 입력을 지우고 기본값으로 되돌린다 */
+  onReset: () => void;
 }) {
   const preset = findPreset(inputs.presetId);
   const patch = (p: Partial<Inputs>) => onChange({ ...inputs, ...p });
@@ -253,6 +257,49 @@ export function InputPanel({
           </label>
         </div>
       </Panel>
+
+      <div className="flex items-center justify-between gap-2 px-0.5 text-[11px] leading-relaxed text-ink-3">
+        <p>
+          입력값은 <b>이 브라우저에만</b> 저장됩니다. 새로고침하거나 나중에 다시 열어도
+          그대로입니다.
+        </p>
+        <ResetButton onReset={onReset} />
+      </div>
     </div>
+  );
+}
+
+/**
+ * 저장된 입력을 지운다.
+ *
+ * 시세 스무 칸을 실수로 날리면 복구할 방법이 없어서 두 번 누르게 했다. 브라우저
+ * confirm 은 이 화면의 톤과도 안 맞고 모바일에서 특히 거칠다.
+ */
+function ResetButton({ onReset }: { onReset: () => void }) {
+  const [armed, setArmed] = useState(false);
+
+  useEffect(() => {
+    if (!armed) return;
+    const timer = setTimeout(() => setArmed(false), 5000);
+    return () => clearTimeout(timer);
+  }, [armed]);
+
+  return (
+    <button
+      type="button"
+      className={`inset shrink-0 px-2 py-1 ${
+        armed ? 'text-[color:var(--warn)]' : 'text-ink-2 hover:text-ink-1'
+      }`}
+      onClick={() => {
+        if (!armed) {
+          setArmed(true);
+          return;
+        }
+        setArmed(false);
+        onReset();
+      }}
+    >
+      {armed ? '정말 지울까요?' : '입력 초기화'}
+    </button>
   );
 }
