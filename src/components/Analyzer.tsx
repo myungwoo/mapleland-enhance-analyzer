@@ -1,23 +1,24 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { analyze, decodeAction, normalize, startSuccess, type Analysis } from '@/lib/enhance';
 import { formatMeso, formatPercent, MAN } from '@/lib/format';
 import { BudgetStartNote, BudgetStartPlan } from './BudgetStartPlan';
 import { BarList, ProbabilityCurve } from './charts';
 import { InputPanel } from './InputPanel';
-import { DEFAULT_INPUTS, reverseAttackBonus, toProblem, type Inputs } from './inputs';
+import { reverseAttackBonus, toProblem, type Inputs } from './inputs';
 import { ReverseOutcome } from './ReverseOutcome';
 import { PolicyHeatmap } from './PolicyHeatmap';
 import { StateAdvisor } from './StateAdvisor';
+import { usePersistedState } from './storage';
 import { useDebounced } from './useDebounced';
 import { Panel, Stat, Warning } from './ui';
 
 export function Analyzer() {
-  const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
-  const [selected, setSelected] = useState<{ slots: number; attack: number } | null>(null);
-  const [pendingLevels, setPendingLevels] = useState(0);
-  const [spent, setSpent] = useState(0);
+  // 입력은 이 브라우저에 남는다 — 새로고침해도 채워 둔 시세가 그대로 있어야 한다.
+  const { inputs, progress, setInputs, setSelected, setPendingLevels, setSpent, reset } =
+    usePersistedState();
+  const { selected, pendingLevels, spent } = progress;
 
   // 입력칸은 즉시 반응하고, 무거운 분석만 타이핑이 멎은 뒤에 돈다.
   const settled = useDebounced(inputs);
@@ -43,7 +44,7 @@ export function Analyzer() {
 
       <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-4 lg:self-start">
-          <InputPanel inputs={inputs} onChange={setInputs} />
+          <InputPanel inputs={inputs} onChange={setInputs} onReset={reset} />
         </div>
 
         <div className={`relative flex flex-col gap-4 ${stale ? 'opacity-50' : ''}`}>
