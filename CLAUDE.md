@@ -77,6 +77,27 @@ npm run diag       # 입력 시세의 정합성(매물 이론가) 확인
 GitHub Pages 정적 호스팅이다. 라우트 핸들러·서버 액션·미들웨어를 넣으면 `next build` 의
 `output: 'export'` 에서 깨진다. `basePath` 는 CI 가 `NEXT_PUBLIC_BASE_PATH` 로 주입한다.
 
+### 7. 저장을 추가하면 키에 앱 접두어를 붙인다
+
+지금 이 앱은 브라우저에 아무것도 저장하지 않는다(계산은 전부 메모리에서 끝난다).
+저장을 추가할 때 알아야 할 것:
+
+이 앱은 **다른 유틸들과 브라우저 저장소를 공유한다.**
+`myungwoo.github.io/mapleland-enhance-analyzer` 는 다른 프로젝트 페이지들과 오리진이
+같고, `mapleland.myungwoo.kr/enhance` 는
+[메이플랜드 유틸 모음](https://github.com/myungwoo/mapleland-utils)이 유틸 다섯 개를
+한 도메인의 하위 경로로 함께 배포한 것이다.
+
+**localStorage · sessionStorage · IndexedDB 는 오리진 단위다. 경로로 갈라지지 않는다.**
+그래서 `settings`, `theme` 같은 이름을 접두어 없이 쓰면 다른 유틸의 값을 조용히 덮어쓴다.
+에러가 아니라 "설정이 이상해졌다"로 나타나서 원인을 찾기 어렵다. 실제로 데미지 계산기가
+사냥 타이머의 `theme` 값을 지우던 버그가 있었다.
+
+- 앱 전용 값은 `ml:enhance:` 로 시작한다.
+- 테마처럼 유틸들이 **일부러 공유하는** 값만 예외다. 키는 `ml:theme`, 값은
+  `'light' | 'dark' | 'system'` 이고, 모르는 값은 시스템 설정으로 보고 덮어쓰지 않는다.
+- 키 이름을 바꿀 때 예전 키는 지우지 않는다. 새 키가 비어 있을 때만 한 번 복사한다.
+
 ## 구조
 
 | 경로 | 역할 |
