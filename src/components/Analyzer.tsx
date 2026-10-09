@@ -38,7 +38,7 @@ export function Analyzer() {
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-[18px] text-gold">메이플랜드 주문서 강화 분석기</h1>
         <p className="text-[11px] text-ink-3">
-          목표까지의 최소 기대비용 전략과 손절 시점을 동적계획으로 정확히 계산합니다
+          목표까지의 최소 기대비용 전략과 손절 시점을 계산합니다
         </p>
       </header>
 
@@ -183,7 +183,7 @@ function Results({
               </>
             ) : (
               <Stat
-                label="기대 총비용"
+                label="기대비용"
                 value={formatMeso(cost.expectedCost)}
                 sub={problem.salvage ? '되팔이 회수 반영' : '되팔기 없음 (회수 0)'}
                 tone="gold"
@@ -299,8 +299,8 @@ function Results({
           markers={[
             ...(distribution
               ? [
-                  { x: distribution.quantiles.p50, label: '중앙' },
-                  { x: distribution.quantiles.p90, label: '상위10%' },
+                  { x: distribution.quantiles.p50, label: '중앙값' },
+                  { x: distribution.quantiles.p90, label: '상위 10%' },
                 ]
               : []),
             ...(!budgetIsAuto && budgetMeso ? [{ x: budgetMeso, label: '내 예산' }] : []),
@@ -345,7 +345,7 @@ function Results({
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel
           title="전략 비교"
-          hint={noRestart ? '같은 조건에서의 달성 확률' : '같은 조건에서의 기대 총비용'}
+          hint={noRestart ? '같은 조건에서의 달성 확률' : '같은 조건에서의 기대비용'}
         >
           {noRestart ? (
             <BarList
