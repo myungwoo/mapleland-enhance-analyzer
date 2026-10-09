@@ -158,7 +158,7 @@ export function StateAdvisor({
           </dl>
           {blocked && (
             <p className="mt-2 border-l-2 border-[color:var(--warn)] bg-[#2a2417] px-2 py-1.5 text-[11px] leading-relaxed text-ink-2">
-              남은 {formatMeso(remaining ?? 0)} 으로는 이 상태에서 목표를 만들 수 없습니다.
+              남은 {formatMeso(remaining ?? 0)}으로는 이 상태에서 목표를 만들 수 없습니다.
               {needed !== null && (
                 <>
                   {' '}
